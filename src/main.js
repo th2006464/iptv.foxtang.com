@@ -16,7 +16,7 @@ try {
   if (typeof saved.muted === 'boolean') prefs.muted = saved.muted;
 } catch { /* Bad preferences must not break startup. */ }
 let state = EMPTY_STATE();
-let ui = { filter: 'all', group: 'all', source: 'all', search: '', selected: null, visible: 150, pending: null, importMode: 'file' };
+let ui = { filter: 'all', group: 'all', source: 'all', search: '', selected: null, visible: 250, pending: null, importMode: 'file' };
 let canPersist = true;
 let noticeTimeout;
 const video = $('#video');
@@ -89,7 +89,7 @@ function renderGroups() {
     const btn = node('button', 'group-pill' + (ui.group === name ? ' active' : ''));
     btn.type = 'button'; btn.title = name;
     btn.append(node('span', 'truncate', name), node('small', '', String(count)));
-    btn.addEventListener('click', () => { ui.group = ui.group === name ? 'all' : name; ui.visible = 150; render(); });
+    btn.addEventListener('click', () => { ui.group = ui.group === name ? 'all' : name; ui.visible = 250; render(); });
     target.append(btn);
   }
   if (!counts.has(ui.group)) ui.group = 'all';
@@ -525,11 +525,11 @@ function setupEvents() {
   $('#themeBtn').addEventListener('click', () => { prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark'; theme(); savePrefs(); });
   $('#modalClose').addEventListener('click', closeModal);
   $('#modal').addEventListener('click', (e) => { if (e.target === $('#modal')) closeModal(); });
-  $('#search').addEventListener('input', (e) => { ui.search = e.target.value.trim(); ui.visible = 150; renderList(); });
-  $('#sourceFilter').addEventListener('change', (e) => { ui.source = e.target.value; ui.group = 'all'; ui.visible = 150; render(); });
+  $('#search').addEventListener('input', (e) => { ui.search = e.target.value.trim(); ui.visible = 250; renderList(); });
+  $('#sourceFilter').addEventListener('change', (e) => { ui.source = e.target.value; ui.group = 'all'; ui.visible = 250; render(); });
   $('#filters').addEventListener('click', (e) => {
     const button = e.target.closest('[data-filter]');
-    if (button) { ui.filter = button.dataset.filter; ui.visible = 150; render(); }
+    if (button) { ui.filter = button.dataset.filter; ui.visible = 250; render(); }
   });
   $('#clearGroup').addEventListener('click', () => { ui.group = 'all'; render(); });
   $('#loadMore').addEventListener('click', () => { ui.visible += 150; renderList(); });
