@@ -1,9 +1,9 @@
 {
-  "name": "fox-iptv",
+  "name": "mediahub-live",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Private-by-design browser IPTV player deployed as a static Cloudflare Pages site",
+  "description": "MediaHub Live static browser IPTV player for Cloudflare Pages",
   "scripts": {
     "test": "node --test",
     "check": "npm run test && npm run build",

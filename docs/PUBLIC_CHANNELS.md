@@ -1,6 +1,6 @@
 # 默认公共频道来源与限制
 
-这份文档记录 Fox IPTV 的首批默认频道来源，**不代表 HD.Rip 原站使用相同 URL**，也不意味着第三方源的二次展示/转播权已经被核实。
+这份文档记录 MediaHub Live 的首批默认频道来源，**不代表 HD.Rip 原站使用相同 URL**，也不意味着第三方源的二次展示/转播权已经被核实。
 
 ## 数据来源
 
@@ -22,7 +22,7 @@
 - Africanews English
 - CNA Originals
 
-各频道的具体 URL 和备用线路定义于 src/public-catalog.js。频道访问可能被 403、跨域策略、设备解码或地区限制阻止，来源目录列出的 URL **不等于实际可播放验证通过**。
+各频道的具体 URL 和备用线路定义于 src/public-catalog.js。额外的 13 种 GitHub 公开 M3U 目录请参阅 docs/GITHUB_PLAYLISTS.md。频道访问可能被 403、跨域策略、设备解码或地区限制阻止，来源目录列出的 URL **不等于实际可播放验证通过**。
 
 ## 如何维护
 

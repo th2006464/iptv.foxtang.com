@@ -20,3 +20,18 @@
 @media(max-width:800px){.topbar{height:66px;padding:0 15px}.brand-mark{width:37px;height:37px;border-radius:12px}.brand strong{font-size:17px}.brand small{font-size:7px;letter-spacing:1px}.top-actions{gap:6px}.top-actions .btn{font-size:11px;padding:7px 9px;min-height:34px}.top-actions #themeBtn{display:none}.top-actions #manageBtn span{display:none}.workspace{display:flex;flex-direction:column}.main{order:0;padding:20px 15px 10px}.sidebar{order:1;position:static;max-height:none;min-height:auto;border-right:0;border-top:1px solid var(--border);padding:19px 14px 22px}.channel-list{max-height:550px;min-height:120px}.groups{max-height:150px}.content-head{margin-bottom:17px}.content-head h1{font-size:23px}.content-head p{font-size:11px}.video-box{min-height:0}.playback-meta{flex-direction:column;align-items:stretch;padding:15px 15px 10px}.controls{justify-content:space-between;gap:4px}.icon-btn{width:35px}.player-detail{padding:11px 15px;align-items:flex-start}.line-field select{max-width:138px}.info-panel{padding:18px}.lower-grid{gap:10px;margin:15px 0}.stats-panel{min-height:110px}.stats-panel strong{font-size:24px}.app-footer{display:none}.sidebar-footer{margin-top:15px}}
 @media(max-width:440px){.brand small{display:none}.brand{gap:8px}.top-actions .btn{padding:7px}.top-actions #importBtn{font-size:10px}.content-head h1{font-size:21px}.video-empty .empty-orb{height:52px;width:52px;border-radius:18px;font-size:21px;margin-bottom:8px}.video-empty strong{font-size:13px}.video-empty p{margin:6px 0 10px;font-size:10px}.video-empty .btn{min-height:30px;padding:6px 12px;font-size:10px}.corner-badge{top:8px;left:8px;font-size:8px;padding:5px}.player-detail{flex-direction:column}.line-field{width:100%;justify-content:space-between}.line-field select{max-width:250px}.modal-card{padding:24px 15px}.tabbar button{font-size:10px}.source-row{flex-direction:column;align-items:flex-start}.source-actions{width:100%}.source-actions .btn{flex:1}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+
+/* MediaHub Live logo: native transparent PNG, no oversized badge or white backdrop. */
+.brand-mark{width:34px;height:34px;border-radius:0;background:transparent;box-shadow:none;display:flex;align-items:center;justify-content:center;overflow:visible}
+.brand-mark img{display:block;width:32px;height:32px;max-width:100%;max-height:100%;object-fit:contain;object-position:center}
+.public-source-list{max-height:min(490px,54vh);overflow-y:auto}
+.public-source-list .source-row{gap:12px}
+.public-source-list .source-info{flex:1}
+#githubBtn{color:var(--text)}
+@media(max-width:800px){
+ .brand-mark{width:30px;height:30px}
+ .brand-mark img{width:28px;height:28px}
+ .top-actions #githubBtn{display:none}
+ .brand strong{font-size:15px}
+}
