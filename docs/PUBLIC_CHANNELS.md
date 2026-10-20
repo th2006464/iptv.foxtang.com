@@ -1,29 +1,40 @@
-# 精选电视台和备用线路
+# HD.Rip 公开频道目录与个人线路绑定
 
-**版本：2026-10-20**。不是复制 HD.Rip 的网站接口或付费节目源，只参考用户提供的 HD.Rip 截图来组织类似的频道浏览与线路切换体验。
+更新时间：2026-10-20。
 
-## 数据来源
+## HD.Rip 参考范围
 
-- [iptv-org/iptv](https://github.com/iptv-org/iptv) 的公开 M3U 项目及 `streams/{tw,hk,cn,kr,jp,sg,fr,de,qa,uk,us}.m3u`：整理 TVG ID、HTTPS 地址及备用播出源。
-- [Free-TV/IPTV](https://github.com/Free-TV/IPTV)：补充免费电视台的独立公开来源和部分图标。
-- `src/public-catalog.js`：此前验证仅存在于公开目录中的首批 18 个频道，现在**不再作为单独默认来源显示**，仅为名单中能匹配到的频道补充已有备线。
+读取 `https://hd.rip/` 首页的公开 `application/ld+json` ItemList。该结构化数据当前包含 **184 条频道记录**，每条记录有频道编号与台名，例如：
 
-## 数据组织与当前快照
+- 阿里郎 Arirang（155）
+- 八大综合（158）
+- 博斯网球（165）
+- 爱尔达体育1台（62）
+- HBO（84）、HBO Malaysia（219）
+- 无线翡翠台 (香港)（141）
+- TVBS新闻台（197）
 
-- `src/curated-roster.js`：手工挑选约 99 个候选台名，稳定 key、分组及可匹配 TVG ID。
-- `src/curated-snapshot.js`：筛选出实际具有 HTTPS 免费公开候选源的 88 个电视台，138 条线路，37 个公开频道图标引用。
-- `src/curated-catalog.js`：按照 TVG ID 聚合线路，避免把多个 URL 误显示为多个频道，限定单个频道不超过 7 条线路。
-- 首页直接使用本地构建资源，**不自动下载全球上万频道的 M3U**，加载失败时仍有本地精选表。
-- 源管理中的「更新公共线路」会按需请求 `https://iptv-org.github.io/iptv/index.m3u` 和 `https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8`，只向已存在的 88 个电视台补充新地址，不扩大默认电视台数量。
+这些是**公开频道名称和编号**，不是 HD.Rip 播放 URL、API、DRM 凭据或版权许可。原网页截图显示“187 个在线频道”，而这次获取到的结构化目录报告为“184”；因此本站不能声称两个统计完全一致。
 
-## 历史数据兼容
+## 当前目录及播放来源
 
-已有浏览器中的 `fox-public-broadcasts-v1` 和 `github-iptv-org-default-v1` 被迁移替换为 `mediahub-curated-v2`。已导入的私人 M3U、收藏、最近观看记录不会被清空；能够匹配相同 TVG ID 的公开收藏和最近播放会映射到新频道 ID。旧版 JSON 备份格式 `fox-iptv-backup-v1` 继续支持。
+- `src/hd-reference-channels.js`：184 条频道名称、编号和大致分类，顺序取自页面公开结构化目录。
+- `src/hd-reference-sources.js`：额外整理的新闻、公共广播免费流候选地址；不存在付费电视的未经授权直播地址。
+- `src/hd-reference-catalog.js`：把部分对应电视台和已有 `src/curated-snapshot.js` 的免费候选线路匹配至参考名单，逐台展示可选线路；未找到合适 URL 时存储 `streams: []`，在 UI 中显示“待绑定”。
+- `src/playlist.js`：私人订阅 M3U 解析，按照频道 TVG ID 和名称识别用户手中有权观看的 HBO、ELTA、博斯及其他频道；不执行 DRM 或付费鉴权绕过。
+- `src/main.js`：用户选中“待绑定”频道后手动保存 HTTP(S) 播放 URL，或通过源管理匹配个人订阅；私人播放 URL 只保存于当前浏览器。
 
-## 重要界限
+公开目录中的资源来自 `iptv-org/iptv` 与 `Free-TV/IPTV` 等社区维护的列表。来源公开 ≠ 发布授权或播放验证通过；即使使用 HTTPS，直播仍可能受 CORS、地区、码流兼容性及服务端鉴权影响。本站不代理、转码、录制和缓存视频。绑定付费订阅的用户必须确认自己有权访问。
 
-- IPTV 链接公开出现在 GitHub 上，不等于直播内容的分发权或所有设备可播性已被验证。
-- HBO、爱尔达以及仅有第三方不明镜像的订阅付费频道不在默认源中；不绕过 DRM、版权鉴权、CORS、地域限制。
-- 不采集、记录、缓存、代理、录制、转码第三方视频；直播数据由浏览器直接向源站请求。
-- 某些节目可能带地域限制或源站拒绝访问。选择「换线路」可以试不同公共 CDN，但不能保证播放成功。
-- 切换多条线路不意味着自动检查它们是否工作。需要真实浏览器实测，别把 GitHub CI 当播放验收。
+## 站点升级与兼容性
+
+- 新建或升级的浏览器默认显示完整 184 条频道记录，**不需要外网下载海量第三方 M3U**。
+- 旧版本 `fox-public-broadcasts-v1`（18 台）、`github-iptv-org-default-v1`（全球目录）和 `mediahub-curated-v2`（88 台）在安装时迁移到 `mediahub-hd-reference-v1`，私人清单来源不受影响。
+- 参考电视台稳定标识为 `ref-<HD.Rip公开编号>`，保留同名不同编号的记录。对应的历史收藏、最近播放及用户已绑定线路尽可能保留；对不唯一的名字不执行模糊自动匹配。
+- JSON 备份格式 `fox-iptv-backup-v1` 不变，支持导出和恢复。
+- 如果节目没有公开候选 URL，将显示“待绑定”，而不是伪称在线播放可用。
+- 公开源更新只会增加与已识别的免费频道匹配的候选线路；不为付费频道自动补上不明镜像。
+
+## 验收
+
+`npm run check` 现在包括 JavaScript 语法检查、Node 测试和 Cloudflare Pages 静态构建；这能避免之前发生的入口 `async async function init()` 语法错误被普通单元测试遗漏。它不能替代 iPhone Safari 的播放、跨域和地区可用性实测。
