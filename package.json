@@ -6,7 +6,8 @@
   "description": "MediaHub Live static browser IPTV player for Cloudflare Pages",
   "scripts": {
     "test": "node --test",
-    "check": "npm run test && npm run build",
+    "syntax:check": "node scripts/check-syntax.mjs",
+    "check": "npm run syntax:check && npm run test && npm run build",
     "build": "node scripts/build.mjs"
   },
   "engines": { "node": ">=20" }

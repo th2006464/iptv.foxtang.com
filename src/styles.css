@@ -93,3 +93,22 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{
   .now-bottom .next-line-btn{min-height:33px;padding:6px 8px}
   .line-field select{max-width:137px}
 }
+
+/* Full reference directory, including stations with no public stream. */
+.channel-row .missing-tag{background:#a0822912;color:#dfc78b;border-color:#9e82445c;white-space:nowrap}
+.channel-row:has(.missing-tag) .channel-title{color:var(--muted)}
+.bind-line-btn{border-color:#41689b66!important;color:#a9cafa!important}
+.bind-line-btn:not(:disabled):hover{background:#23507845!important;color:#e5f2ff!important}
+.now-bottom{flex-wrap:wrap}
+.video-empty strong{max-width:min(90%,550px)}
+.video-empty p{max-width:min(86%,520px);white-space:normal}
+@media(max-width:780px){
+  .channel-row:has(.missing-tag) .channel-title{color:var(--muted)}
+  .channel-row .missing-tag{font-size:9px;padding:3px 6px}
+  .now-bottom .bind-line-btn{flex:0 0 auto}
+}
+@media(max-width:440px){
+  .now-bottom .bind-line-btn{padding:6px 9px}
+  .video-empty p{font-size:11px;padding:0 8px;line-height:1.6}
+  .video-empty strong{font-size:16px}
+}
