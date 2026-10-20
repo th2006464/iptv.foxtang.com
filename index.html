@@ -3,17 +3,18 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1020"><meta name="referrer" content="no-referrer">
-<meta name="description" content="Fox IPTV — 私人 M3U/IPTV 网络电视播放器。清单和收藏保存在当前浏览器。">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta name="description" content="MediaHub Live — 公开频道与个人 M3U/IPTV 直播播放器。清单和收藏保存在当前浏览器。">
+<link rel="icon" href="/media.png" type="image/png" sizes="any">
+<link rel="apple-touch-icon" href="/media.png">
 <link rel="stylesheet" href="/src/styles.css">
-<title>Fox IPTV · 私人直播影院</title>
+<title>MediaHub Live · 网络电视直播</title>
 </head>
 <body>
 <div id="app">
 <header class="topbar">
- <div class="brand"><div class="brand-mark"><span>▶</span></div><div><strong>Fox IPTV</strong><small>YOUR PERSONAL CINEMA</small></div></div>
+ <div class="brand"><div class="brand-mark"><img src="/media.png" alt="" width="32" height="32"></div><div><strong>MediaHub Live</strong><small>LIVE · STREAM · CHANNELS</small></div></div>
  <div class="topbar-middle"><span class="live-pulse"></span><span>私人直播影院</span><span class="topbar-separator">/</span><span id="topCount">0 个频道</span></div>
- <div class="top-actions"><button type="button" class="btn subtle" id="themeBtn">☾ 深色</button><button type="button" class="btn subtle" id="manageBtn">⚙ <span>源管理</span></button><button type="button" class="btn primary" id="importBtn">＋ 导入频道</button></div>
+ <div class="top-actions"><button type="button" class="btn subtle" id="themeBtn">☾ 深色</button><button type="button" class="btn subtle" id="githubBtn">◈ <span>GitHub 频道库</span></button><button type="button" class="btn subtle" id="manageBtn">⚙ <span>源管理</span></button><button type="button" class="btn primary" id="importBtn">＋ 导入频道</button></div>
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 <div class="workspace">
@@ -58,10 +59,10 @@
    <div class="player-detail"><div class="stream-status"><span class="state-dot" id="statusDot"></span><span id="statusText" role="status">等待选择频道</span></div><label class="line-field">线路 <select id="lineSelect" aria-label="选择播放线路" disabled><option>无可用线路</option></select></label></div>
   </section>
   <section class="lower-grid">
-   <div class="info-panel"><div class="info-icon">✦</div><div><h3>自己的频道，自己的影院</h3><p>支持本地文件、M3U 文本、HTTPS 订阅地址和自定义直播链接。无需视频服务器，播放由浏览器直接连接源站。</p><button class="inline-action" type="button" id="infoImport">管理我的播放列表 →</button></div></div>
+   <div class="info-panel"><div class="info-icon">✦</div><div><h3>自己的频道，自己的影院</h3><p>支持本地文件、M3U 文本、HTTPS 订阅地址和自定义直播链接。无需视频服务器，播放由浏览器直接连接源站。</p><button class="inline-action" type="button" id="infoImport">探索 GitHub 公开频道 →</button></div></div>
    <div class="stats-panel"><div><span>我的频道</span><strong id="statChannels">0</strong></div><div><span>已收藏</span><strong id="statFav">0</strong></div><div><span>播放源</span><strong id="statSources">0</strong></div></div>
   </section>
-  <footer class="app-footer">FOX IPTV <span>·</span> 无服务器存储 <span>·</span> 公共频道由第三方源站提供 <span>·</span> 仅用于有权访问的直播源</footer>
+  <footer class="app-footer">MEDIAHUB LIVE <span>·</span> 无服务器存储 <span>·</span> 公共频道由第三方源站提供 <span>·</span> 仅用于有权访问的直播源</footer>
  </main>
 </div>
 <div class="modal-overlay" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="频道管理"><button class="modal-close" id="modalClose" title="关闭" aria-label="关闭">×</button><div id="modalBody"></div></div></div>

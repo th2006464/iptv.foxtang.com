@@ -2,6 +2,7 @@ import { parseM3U, makeManualChannel, safeHttpUrl, MAX_IMPORT_BYTES } from './pl
 import { EMPTY_STATE, loadState, saveState, appendSource, removeSource, toggleFavorite, recordRecent } from './store.js';
 import { PlayerController } from './player.js';
 import { PUBLIC_SOURCE, PUBLIC_SOURCE_ID, PUBLIC_BOOTSTRAP_FLAG, getPublicChannels } from './public-catalog.js';
+import { GITHUB_PLAYLISTS } from './github-sources.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
@@ -131,7 +132,7 @@ function renderList() {
 function renderCurrent() {
   const channel = state.channels.find((c) => c.id === ui.selected);
   $('#pageTitle').textContent = channel ? channel.name : '你的私人直播空间';
-  $('#pageSubtitle').textContent = channel ? '频道分组 · ' + channel.group : '选择左侧公共频道即可开始观看，也可以导入自己的 M3U 清单。';
+  $('#pageSubtitle').textContent = channel ? '频道分组 · ' + channel.group : '选择公共频道，或从 GitHub 频道库导入更多直播清单。';
   $('#currentName').textContent = channel ? channel.name : '尚未选择频道';
   $('#currentGroup').textContent = channel ? channel.group : '添加你有权观看的直播源';
   $('#videoEmpty').hidden = Boolean(channel);
@@ -219,7 +220,7 @@ function sourceRow(source) {
   return row;
 }
 function openManage() {
-  openModal('<div class="modal-eyebrow">MY SOURCES</div><h2>播放源管理</h2><p class="modal-lead">数据仅保存在当前浏览器，停用来源不会删除频道。</p><div id="sourceRows" class="source-rows"></div><div class="settings-row"><div><strong>外部频道图标</strong><small>默认关闭，开启后浏览器将直接请求图标站点</small></div><label class="switch"><input id="logoToggle" type="checkbox"><span></span></label></div><div class="manage-actions"><button class="btn secondary" id="backupBtn">↓ 导出私人备份</button><button class="btn secondary" id="restoreBtn">↑ 导入备份</button><button class="btn primary" id="addSourceBtn">＋ 添加频道源</button></div><p class="security-note">备份可能包含访问令牌的私人播放地址，请勿提交到 GitHub 或分享。</p>');
+  openModal('<div class="modal-eyebrow">MY SOURCES</div><h2>播放源管理</h2><p class="modal-lead">数据仅保存在当前浏览器，停用来源不会删除频道。</p><div id="sourceRows" class="source-rows"></div><div class="settings-row"><div><strong>外部频道图标</strong><small>默认关闭，开启后浏览器将直接请求图标站点</small></div><label class="switch"><input id="logoToggle" type="checkbox"><span></span></label></div><div class="manage-actions"><button class="btn secondary" id="backupBtn">↓ 导出私人备份</button><button class="btn secondary" id="restoreBtn">↑ 导入备份</button><button class="btn secondary" id="githubManageBtn">◈ GitHub 频道库</button><button class="btn primary" id="addSourceBtn">＋ 添加频道源</button></div><p class="security-note">备份可能包含访问令牌的私人播放地址，请勿提交到 GitHub 或分享。</p>');
   const rows = $('#sourceRows');
   for (const source of state.sources) rows.append(sourceRow(source));
   if (!state.sources.length) rows.append(node('p', 'muted', '暂无来源，点击添加频道源开始。'));
@@ -228,6 +229,7 @@ function openManage() {
   $('#backupBtn').addEventListener('click', exportBackup);
   $('#restoreBtn').addEventListener('click', openRestore);
   $('#addSourceBtn').addEventListener('click', openImport);
+  $('#githubManageBtn').addEventListener('click', openGitHubLibrary);
 }
 function changeImportMode() {
   for (const btn of document.querySelectorAll('[data-import]')) btn.classList.toggle('active', btn.dataset.import === ui.importMode);
@@ -264,7 +266,7 @@ async function readLimited(response) {
     return result + decoder.decode();
   } finally { reader.cancel().catch(() => {}); }
 }
-async function prepareImport({ mode, file, url, replaceSource } = {}) {
+async function prepareImport({ mode, file, url, replaceSource, displayName } = {}) {
   const button = $('#prepareBtn');
   if (button) { button.disabled = true; button.textContent = '正在解析…'; }
   $('#confirmImport').hidden = true; ui.pending = null;
@@ -294,7 +296,7 @@ async function prepareImport({ mode, file, url, replaceSource } = {}) {
           if (e instanceof TypeError) throw new Error('订阅无法读取：可能由 CORS 或网络限制导致');
           throw e;
         } finally { clearTimeout(timeout); }
-        name = replaceSource?.name || '订阅 · ' + new URL(remoteUrl).hostname;
+        name = replaceSource?.name || displayName || '订阅 · ' + new URL(remoteUrl).hostname;
       } else throw new Error('未知导入方式');
       summary = parseM3U(text, id); channels = summary.channels;
       source = { id, name, type: mode, enabled: replaceSource?.enabled ?? true,
@@ -326,7 +328,7 @@ function exportBackup() {
   if (!confirm('备份文件可能包含私人订阅令牌和直播 URL。确认下载到本设备并妥善保管？')) return;
   const blob = new Blob([JSON.stringify({ format: 'fox-iptv-backup-v1', data: state }, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob), a = node('a');
-  a.href = url; a.download = 'fox-iptv-private-backup.json'; a.click();
+  a.href = url; a.download = 'mediahub-live-private-backup.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function sanitizeBackup(value) {
@@ -348,8 +350,29 @@ function sanitizeBackup(value) {
     favorites: [...new Set((Array.isArray(value.data.favorites) ? value.data.favorites : []).filter((id) => valid.has(id)))],
     recent: [...new Set((Array.isArray(value.data.recent) ? value.data.recent : []).filter((id) => valid.has(id)))].slice(0, 20) };
 }
+function openGitHubLibrary() {
+  openModal('<div class="modal-eyebrow">GITHUB CHANNEL LIBRARY</div><h2>GitHub 公开频道库</h2><p class="modal-lead">从 iptv-org GitHub 公共项目获取按地区、新闻与专题分类的最新 M3U。所有来源先预览，再由你确认导入；频道实际可播性、版权和地区限制由源站决定。</p><div id="githubPresetRows" class="source-rows public-source-list"></div><p class="security-note">公开目录 ≠ 所有频道已获转播授权。本站只读取索引，不代理或转码；需要 DRM/专用请求头的流可能无法播放。</p>');
+  const list = $('#githubPresetRows');
+  for (const preset of GITHUB_PLAYLISTS) {
+    const row = node('div', 'source-row');
+    const info = node('div', 'source-info');
+    const installed = state.sources.find(s => s.type === 'remote' && s.sourceUrl === preset.url);
+    info.append(node('strong', '', preset.name), node('small', '', preset.description + (installed ? ' · 已导入，可更新' : '')));
+    const btn = node('button', 'btn small secondary', installed ? '更新预览' : '预览导入');
+    btn.type = 'button';
+    btn.addEventListener('click', async () => {
+      openImport();
+      ui.importMode = 'url';
+      changeImportMode();
+      $('#importUrl').value = preset.url;
+      await prepareImport({ mode: 'url', url: preset.url, replaceSource: installed, displayName: preset.name });
+    });
+    row.append(info, btn);
+    list.append(row);
+  }
+}
 function openRestore() {
-  openModal('<div class="modal-eyebrow">RESTORE</div><h2>恢复私人备份</h2><p class="modal-lead">导入 .json 备份会替换当前设备中的全部来源、收藏和最近记录。当前数据可以先导出备份。</p><label class="dropzone"><span class="upload-symbol">⇧</span><strong>选择 Fox IPTV 备份文件</strong><input id="restoreFile" type="file" accept=".json,application/json"></label><p class="security-note">仅接受本应用导出的备份格式，文件内容只在浏览器本地处理。</p>');
+  openModal('<div class="modal-eyebrow">RESTORE</div><h2>恢复私人备份</h2><p class="modal-lead">导入 .json 备份会替换当前设备中的全部来源、收藏和最近记录。当前数据可以先导出备份。</p><label class="dropzone"><span class="upload-symbol">⇧</span><strong>选择 MediaHub Live 备份文件</strong><input id="restoreFile" type="file" accept=".json,application/json"></label><p class="security-note">仅接受本应用导出的备份格式，文件内容只在浏览器本地处理。</p>');
   $('#restoreFile').addEventListener('change', async (e) => {
     try {
       const file = e.target.files?.[0];
@@ -363,8 +386,10 @@ function openRestore() {
   });
 }
 function setupEvents() {
-  for (const id of ['importBtn', 'emptyImport', 'infoImport']) $('#' + id).addEventListener('click', openImport);
+  for (const id of ['importBtn', 'emptyImport']) $('#' + id).addEventListener('click', openImport);
+  $('#infoImport').addEventListener('click', openGitHubLibrary);
   $('#manageBtn').addEventListener('click', openManage);
+  $('#githubBtn').addEventListener('click', openGitHubLibrary);
   $('#themeBtn').addEventListener('click', () => { prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark'; theme(); savePrefs(); });
   $('#modalClose').addEventListener('click', closeModal);
   $('#modal').addEventListener('click', (e) => { if (e.target === $('#modal')) closeModal(); });
