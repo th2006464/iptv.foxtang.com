@@ -63,6 +63,14 @@
 - 加上 CSS 和主 JS 相同版本号的 URL 查询标识，并对 `/src/*` 设置 `Cache-Control: no-cache, must-revalidate`，防止 iPhone Safari 缓存旧 CSS 却下载了新版 HTML。
 - 频道名称和编号依然来自 HD.Rip 公开 JSON-LD 的 184 条清单；付费台显示台名与“待绑定”，支持用户合法私人线路绑定，但不复制原站受控接口。
 
+## 本机抓包 M3U 的数字台号精准匹配（v10）
+
+如果用户具有合法访问权限并从浏览器获取了 `#EXTM3U` 清单，可以在 **源管理 → 添加频道源 → 本地文件** 导入 .txt/.m3u；数字 `tvg-id` 精确对应当前 HD.Rip 参考目录 184 个台号，包括「中视」等重名台。导入的频道不重复占用侧栏频道行，播放线路附在已有台名下；最新导入的线路优先，旧 CDN 地址保留为备选。再次导入相同范围（100+ 个精确数字台号）会替换旧的本机私人快照，而非叠加新来源。
+
+HD.Rip 临时签名 URL 中的 `e` 可能表示过期时间。导入预览会显示签名到期提醒，过期签名线路不继续尝试，但不绕过请求鉴权、DRM 或地区限制。**不会把用户提供的原始带签名 URL 提交到公开仓库**；本地 IndexedDB 与导出私人备份仍可能包含这些凭据。
+
+具体使用说明：[docs/LOCAL_M3U_IMPORT.md](docs/LOCAL_M3U_IMPORT.md)。
+
 ## Cloudflare Pages
 
 - Framework preset：None
