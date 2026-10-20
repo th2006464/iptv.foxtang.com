@@ -26,7 +26,9 @@ test('HD.Rip public JSON-LD reference directory contains exactly 184 numbered st
   assert.equal(station(148)?.name, '中视');
   assert.equal(station(149)?.name, '中视');
   assert.equal(all[0].id, 'ref-155');
-  assert.equal(all[all.length-1].id, 'ref-150');
+  assert.deepEqual(all.slice(0, 9).map(x => x.referenceId), [155, 62, 61, 365, 108, 60, 14, 12, 158]);
+  assert.ok(all.some(x => x.id === 'ref-150'));
+  assert.deepEqual(all.map(x => x.name), [...all].map(x => x.name).sort(new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' }).compare));
   for (const row of all) {
     assert.equal(row.sourceId, HD_REFERENCE_SOURCE_ID);
     assert.ok(Array.isArray(row.streams));

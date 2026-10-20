@@ -147,6 +147,7 @@ function freeLinesByReference() {
 const FREE_LINES = freeLinesByReference();
 const FREE_PUBLIC_IDS = new Set([...FREE_LINES.keys()]);
 export function getReferenceChannels() {
+  const byPinyin = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
   return HD_REFERENCE_CHANNELS.map(ref => {
     const publicData = FREE_LINES.get(ref.id);
     return {
@@ -157,7 +158,7 @@ export function getReferenceChannels() {
       streams: publicData?.streams ? [...publicData.streams] : [],
       addedAt: 0
     };
-  });
+  }).sort((a, b) => byPinyin.compare(a.name, b.name) || a.referenceId - b.referenceId);
 }
 function migrateID(state, oldId, available) {
   if (available.has(oldId)) return oldId;
