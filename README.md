@@ -71,6 +71,16 @@ HD.Rip 临时签名 URL 中的 `e` 可能表示过期时间。导入预览会显
 
 具体使用说明：[docs/LOCAL_M3U_IMPORT.md](docs/LOCAL_M3U_IMPORT.md)。
 
+## 2026-10-20 公开 HLS 连通与备用线路（v12）
+
+保留 HD.Rip 184 台频道顺序和当前前端 UI。后台新增 **CGTN 官方 CDN、马来西亚 TV1 广播 CDN、印尼 TVRI 广播官方站、印尼 Metro TV 官方站、泰国国会电视台官方站** 的公开 HLS 候选线路；后面四台原先不在公开后台白名单中。候选元数据来自 `iptv-org/iptv` 等公开清单或播出机构站点，不含 HD.Rip 的短时签名、个人访问令牌、付费流镜像或 DRM。
+
+播放器在确认为连接/解码故障时，最多尝试 **2 条不同的已配置备选线路**，换台和手工指定播放线路会重置尝试状态。换线不保证能解决跨域、地域、商业授权或编码限制。
+
+GitHub Actions 对上述 5 条来源执行一次**非阻塞**的 HLS 主清单 GET 测试，报告响应码、是否以 `#EXTM3U` 开头及 CORS 头；GitHub 机房可访问不等于使用者 Safari 可播放。后台 API 缓存有效期一小时。生产部署后核验 `/api/channels`、Cloudflare Pages Functions 编译记录和用户实际点击后的状态。
+
+公开网站不发布用户此前抓到的 184 条短期签名流。只有附带允许公开分发依据、且无凭据的流才会加入公共线路池。
+
 ## Cloudflare Pages 后台公开线路接口（v11）
 
 网站继续保持公开，频道目录和 UI 不变。Git 集成的 Cloudflare Pages Functions 自动生成

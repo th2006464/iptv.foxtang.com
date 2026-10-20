@@ -1,5 +1,6 @@
 import { HD_REFERENCE_CHANNELS } from './hd-reference-channels.js';
 import { REFERENCE_EXTRA_STREAMS } from './hd-reference-sources.js';
+import { DIRECT_PUBLIC_BROADCASTS } from './direct-public-broadcasts.js';
 import { CURATED_ROSTER } from './curated-roster.js';
 import { CURATED_SNAPSHOT } from './curated-snapshot.js';
 import { getPublicChannels, PUBLIC_SOURCE_ID } from './public-catalog.js';
@@ -141,6 +142,14 @@ function freeLinesByReference() {
       streams: combineStreams([...(entry?.streams || []), ...backup]),
       logo: entry?.logo || ''
     });
+  }
+  // Prefer broadcaster/CDN HLS streams before older community mirrors.
+  for (const [id, additional] of Object.entries(DIRECT_PUBLIC_BROADCASTS)) {
+    const index = Number(id);
+    const existing = map.get(index) || { streams: [], logo: '' };
+    map.set(index, { ...existing, streams: combineStreams([
+      ...additional, ...existing.streams
+    ]) });
   }
   for (const [id, additional] of Object.entries(REFERENCE_EXTRA_STREAMS)) {
     const index = Number(id);

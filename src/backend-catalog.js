@@ -5,7 +5,7 @@ import { HD_REFERENCE_SOURCE_ID } from './hd-reference-catalog.js';
 // eligible for unauthenticated server-side delivery. A TV name appearing on
 // GitHub or HD.Rip does not authorize publishing a pay-TV access URL.
 export const PUBLIC_FEED_REFERENCE_IDS = Object.freeze([
-  2, 20, 23, 44, 53, 114, 115, 155, 169, 181, 250, 351, 361, 402, 406
+  2, 20, 23, 44, 53, 114, 115, 155, 169, 181, 250, 251, 351, 361, 380, 392, 402, 406, 408
 ]);
 const PUBLIC = new Set(PUBLIC_FEED_REFERENCE_IDS);
 export const BACKEND_CATALOG_VERSION = 1;
