@@ -1,6 +1,7 @@
 import { parseM3U, makeManualChannel, safeHttpUrl, MAX_IMPORT_BYTES } from './playlist.js';
 import { EMPTY_STATE, loadState, saveState, appendSource, removeSource, toggleFavorite, recordRecent } from './store.js';
 import { PlayerController } from './player.js';
+import { PUBLIC_SOURCE, PUBLIC_SOURCE_ID, PUBLIC_BOOTSTRAP_FLAG, getPublicChannels } from './public-catalog.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
@@ -130,7 +131,7 @@ function renderList() {
 function renderCurrent() {
   const channel = state.channels.find((c) => c.id === ui.selected);
   $('#pageTitle').textContent = channel ? channel.name : '你的私人直播空间';
-  $('#pageSubtitle').textContent = channel ? '频道分组 · ' + channel.group : '导入 M3U 清单，开始享受大屏沉浸式观看体验。';
+  $('#pageSubtitle').textContent = channel ? '频道分组 · ' + channel.group : '选择左侧公共频道即可开始观看，也可以导入自己的 M3U 清单。';
   $('#currentName').textContent = channel ? channel.name : '尚未选择频道';
   $('#currentGroup').textContent = channel ? channel.group : '添加你有权观看的直播源';
   $('#videoEmpty').hidden = Boolean(channel);
@@ -189,7 +190,7 @@ function openModal(markup) {
 function closeModal() { $('#modal').hidden = true; ui.pending = null; }
 function sourceRow(source) {
   const row = node('div', 'source-row'), info = node('div', 'source-info');
-  info.append(node('strong', '', source.name), node('small', '', state.channels.filter((c) => c.sourceId === source.id).length + ' 个频道 · ' + ({ remote: 'HTTPS 订阅', paste: '粘贴文本', file: '本地文件', manual: '手动添加' }[source.type] || source.type)));
+  info.append(node('strong', '', source.name), node('small', '', state.channels.filter((c) => c.sourceId === source.id).length + ' 个频道 · ' + ({ remote: 'HTTPS 订阅', paste: '粘贴文本', file: '本地文件', manual: '手动添加', builtin: '默认公共频道 · 第三方来源' }[source.type] || source.type)));
   const buttons = node('div', 'source-actions');
   const toggle = node('button', 'btn small subtle', source.enabled ? '停用' : '启用');
   toggle.addEventListener('click', async () => {
@@ -331,7 +332,7 @@ function exportBackup() {
 function sanitizeBackup(value) {
   if (value?.format !== 'fox-iptv-backup-v1' || !value.data || !Array.isArray(value.data.sources) || !Array.isArray(value.data.channels)) throw new Error('不支持此备份格式');
   if (value.data.sources.length > 300 || value.data.channels.length > 15000) throw new Error('备份的数据量超过上限');
-  const sources = value.data.sources.filter((s) => typeof s.id === 'string' && s.id.length <= 100 && typeof s.name === 'string' && s.name.length <= 160 && ['file', 'paste', 'remote', 'manual'].includes(s.type))
+  const sources = value.data.sources.filter((s) => typeof s.id === 'string' && s.id.length <= 100 && typeof s.name === 'string' && s.name.length <= 160 && (['file', 'paste', 'remote', 'manual'].includes(s.type) || (s.type === 'builtin' && s.id === PUBLIC_SOURCE_ID)))
     .map((s) => ({ id: s.id, name: s.name, type: s.type, enabled: s.enabled !== false, createdAt: Number(s.createdAt) || Date.now(), updatedAt: Number(s.updatedAt) || Date.now(),
       ...(s.type === 'remote' && safeHttpUrl(s.sourceUrl)?.startsWith('https://') ? { sourceUrl: safeHttpUrl(s.sourceUrl) } : {}) }));
   const ids = new Set(sources.map((s) => s.id));
@@ -340,7 +341,8 @@ function sanitizeBackup(value) {
       group: String(c.group || '未分类').slice(0, 160), logo: safeHttpUrl(c.logo) || '', tvgId: String(c.tvgId || '').slice(0, 160),
       addedAt: Number(c.addedAt) || Date.now(), streams: c.streams.slice(0, 10)
         .filter((s) => s && safeHttpUrl(s.url)).map((s) => ({ url: safeHttpUrl(s.url), kind: ['hls', 'mpegts', 'flv', 'file', 'auto'].includes(s.kind) ? s.kind : 'auto', label: String(s.label || '线路').slice(0, 40) })) }))
-    .filter((c) => c.streams.length);
+    .filter((c) => c.streams.length && c.sourceId !== PUBLIC_SOURCE_ID);
+  if (sources.some((source) => source.id === PUBLIC_SOURCE_ID)) channels.push(...getPublicChannels());
   const valid = new Set(channels.map((c) => c.id));
   return { version: 1, sources, channels,
     favorites: [...new Set((Array.isArray(value.data.favorites) ? value.data.favorites : []).filter((id) => valid.has(id)))],
@@ -418,6 +420,17 @@ async function init() {
   setupEvents(); theme();
   try { state = await loadState(); }
   catch { canPersist = false; notify('IndexedDB 无法使用：频道和收藏只在当前页面有效', 'error'); }
+  // Bootstrap defaults just once per browser. Removing the public source is respected.
+  const alreadyInstalled = state.sources.some((source) => source.id === PUBLIC_SOURCE_ID);
+  if (alreadyInstalled) { try { localStorage.setItem(PUBLIC_BOOTSTRAP_FLAG, '1'); } catch { /* Private mode. */ } }
+  let addPublic = !alreadyInstalled;
+  try { addPublic = addPublic && localStorage.getItem(PUBLIC_BOOTSTRAP_FLAG) !== '1'; }
+  catch { addPublic = addPublic && state.sources.length === 0; }
+  if (addPublic) {
+    await commit(appendSource(state, { ...PUBLIC_SOURCE, createdAt: Date.now(), updatedAt: Date.now() }, getPublicChannels()));
+    try { localStorage.setItem(PUBLIC_BOOTSTRAP_FLAG, '1'); } catch { /* Private mode: no persistent flag. */ }
+    notify('已添加 18 个公开直播频道；受地区和浏览器兼容性限制，部分频道可能无法播放', 'success');
+  }
   const sharedId = new URL(location.href).searchParams.get('ch');
   if (sharedId && state.channels.some((c) => c.id === sharedId)) {
     ui.selected = sharedId; updatePlayback('idle', '已载入分享频道，点击播放');
