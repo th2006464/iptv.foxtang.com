@@ -3,7 +3,8 @@ import { EMPTY_STATE, loadState, saveState, appendSource, removeSource, toggleFa
 import { PlayerController } from './player.js';
 import { GITHUB_PLAYLISTS } from './github-sources.js';
 import { PUBLIC_SOURCE_ID, getPublicChannels } from './public-catalog.js';
-import { HD_REFERENCE_SOURCE_ID, installReferenceCatalog, addReferenceStream, matchOwnPlaylist, refreshReferencePublicStreams, findReferenceId } from './hd-reference-catalog.js';
+import { HD_REFERENCE_SOURCE_ID, installReferenceCatalog, addReferenceStream, matchOwnPlaylist, findReferenceId } from './hd-reference-catalog.js';
+import { mergeBackendCatalog } from './backend-catalog.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
@@ -228,6 +229,31 @@ function openModal(markup) {
   $('#modal').hidden = false; $('#modalClose').focus();
 }
 function closeModal() { $('#modal').hidden = true; ui.pending = null; }
+// Public sources are centrally configured in Cloudflare Pages Functions.
+// Browser-specific personal tokens and playlists are never sent to this API.
+async function syncPublicBackend({ showNotice = false } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 14000);
+  try {
+    const response = await fetch('/api/channels', {
+      credentials: 'omit', referrerPolicy: 'no-referrer', signal: controller.signal
+    });
+    if (!response.ok) throw new Error('频道接口 HTTP ' + response.status);
+    const payload = await response.json();
+    const currentReference = state.channels.filter(c => c.sourceId === HD_REFERENCE_SOURCE_ID);
+    const before = currentReference.reduce((count, c) => count + c.streams.length, 0);
+    const updated = mergeBackendCatalog(state, payload);
+    await commit(updated);
+    const after = updated.channels.filter(c => c.sourceId === HD_REFERENCE_SOURCE_ID)
+      .reduce((count, c) => count + c.streams.length, 0);
+    if (showNotice) notify('后台频道已同步：' + payload.channelCount
+      + ' 台，' + payload.playableCount + ' 台有公开候选线路；新增 '
+      + Math.max(0, after - before) + ' 条', 'success');
+    return payload;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 function sourceRow(source) {
   const row = node('div', 'source-row'), info = node('div', 'source-info');
   info.append(node('strong', '', source.name), node('small', '', state.channels.filter((c) => c.sourceId === source.id).length + ' 个频道 · ' + ({ remote: 'HTTPS 订阅', paste: '粘贴文本', file: '本地文件', manual: '手动添加', builtin: '精选电视台 · 多条公开线路' }[source.type] || source.type)));
@@ -242,9 +268,7 @@ function sourceRow(source) {
     refresh.addEventListener('click', async () => {
       refresh.disabled = true; refresh.textContent = '更新中…';
       try {
-        const updated = await refreshReferencePublicStreams(state);
-        await commit(updated.state);
-        notify('公共候选线路更新完成，本次新增 ' + updated.newLines + ' 条', 'success');
+        await syncPublicBackend({ showNotice: true });
         openManage();
       } catch (error) {
         notify(error instanceof Error ? error.message : '无法更新公共线路', 'error');
@@ -598,5 +622,9 @@ async function init() {
     ui.selected = state.recent[0]; updatePlayback('idle', '已恢复最近频道，点击播放');
   }
   render();
+  // Nonblocking central public catalog; local snapshot remains as offline fallback.
+  void syncPublicBackend().catch(error => {
+    console.warn('Public catalog API unavailable; bundled channels still work:', error?.message || error);
+  });
 }
 init();

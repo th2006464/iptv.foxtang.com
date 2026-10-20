@@ -11,4 +11,8 @@ await cp(path.join(root, 'src'), path.join(out, 'src'), { recursive: true });
 await cp(path.join(root, 'public'), out, { recursive: true });
 const built = await stat(path.join(out, 'src', 'main.js'));
 if (!built.isFile()) throw new Error('Missing application entry');
-console.log('Static Cloudflare Pages build complete: dist/');
+// Git-integrated Cloudflare Pages automatically bundles root functions/.
+// Do not copy functions into public dist/, which would expose backend code.
+const pagesFunction = await stat(path.join(root, 'functions', 'api', 'channels.js'));
+if (!pagesFunction.isFile()) throw new Error('Missing Pages Function /api/channels');
+console.log('Cloudflare Pages static assets and API source verified: dist/ + functions/');
