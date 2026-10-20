@@ -12,6 +12,24 @@ export function safeHttpUrl(value) {
     return null;
   }
 }
+// Signature expiry is metadata only: we never generate/renew stream signatures.
+// Scope this to a known signed URL format rather than treating every 'e=' as an expiry.
+export function signedStreamExpiry(value) {
+  const url = safeHttpUrl(value);
+  if (!url) return null;
+  const parsed = new URL(url);
+  if (parsed.hostname !== 'hd.rip' && !parsed.hostname.endsWith('.hd.rip')) return null;
+  if (!parsed.searchParams.has('s')) return null;
+  const raw = parsed.searchParams.get('e');
+  if (!raw || !/^\d{10}$/.test(raw)) return null;
+  const epochMs = Number(raw) * 1000;
+  return Number.isSafeInteger(epochMs) && epochMs > 1577836800000 && epochMs < 4102444800000
+    ? epochMs : null;
+}
+export function isExpiredSignedStream(value, now = Date.now()) {
+  const expiresAt = signedStreamExpiry(value);
+  return expiresAt !== null && expiresAt <= now;
+}
 export function streamKind(value) {
   const url = safeHttpUrl(value);
   if (!url) return 'auto';

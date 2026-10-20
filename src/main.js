@@ -1,9 +1,9 @@
-import { parseM3U, makeManualChannel, safeHttpUrl, MAX_IMPORT_BYTES } from './playlist.js';
+import { parseM3U, makeManualChannel, safeHttpUrl, MAX_IMPORT_BYTES, signedStreamExpiry, isExpiredSignedStream } from './playlist.js';
 import { EMPTY_STATE, loadState, saveState, appendSource, removeSource, toggleFavorite, recordRecent } from './store.js';
 import { PlayerController } from './player.js';
 import { GITHUB_PLAYLISTS } from './github-sources.js';
 import { PUBLIC_SOURCE_ID, getPublicChannels } from './public-catalog.js';
-import { HD_REFERENCE_SOURCE_ID, installReferenceCatalog, addReferenceStream, matchOwnPlaylist, refreshReferencePublicStreams } from './hd-reference-catalog.js';
+import { HD_REFERENCE_SOURCE_ID, installReferenceCatalog, addReferenceStream, matchOwnPlaylist, refreshReferencePublicStreams, findReferenceId } from './hd-reference-catalog.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
@@ -48,9 +48,18 @@ async function commit(next) {
   }
   state = next; render();
 }
+const PRIVATE_HD_SNAPSHOT_ID = 'personal-hd-reference-snapshot-v1';
+function availableStreams(channel, now = Date.now()) {
+  return (channel?.streams || []).filter(item => !isExpiredSignedStream(item.url, now));
+}
 function activeChannels() {
-  const enabled = new Set(state.sources.filter((s) => s.enabled).map((s) => s.id));
-  return state.channels.filter((c) => enabled.has(c.sourceId));
+  const enabled = new Set(state.sources.filter(s => s.enabled).map(s => s.id));
+  const active = state.channels.filter(c => enabled.has(c.sourceId));
+  const references = new Set(active.filter(c => c.sourceId === HD_REFERENCE_SOURCE_ID).map(c => c.id));
+  // A personal playlist supplies line(s) for an existing reference station.
+  // Keep the source in IndexedDB and source management, not a duplicate TV row.
+  return active.filter(c => c.sourceId === HD_REFERENCE_SOURCE_ID ||
+    !references.has('ref-' + findReferenceId(c)));
 }
 function visibleChannels() {
   const term = ui.search.toLocaleLowerCase();
@@ -79,9 +88,12 @@ function renderList() {
     }
     const info = node('span', 'channel-info');
     info.append(node('span', 'channel-title', channel.name));
-    const kind = channel.streams?.[0]?.kind || 'auto';
-    if (!channel.streams?.length) info.append(node('span', 'codec-tag missing-tag', '待绑定'));
-    else if (['hls', 'mpegts', 'flv'].includes(kind)) info.append(node('span', 'codec-tag', kind === 'hls' ? 'HLS' : kind === 'mpegts' ? 'TS' : 'FLV'));
+    const usable = availableStreams(channel);
+    const kind = usable[0]?.kind || 'auto';
+    if (!usable.length) {
+      const wasSigned = (channel.streams || []).some(item => signedStreamExpiry(item.url) !== null);
+      info.append(node('span', 'codec-tag missing-tag', wasSigned ? '签名已到期' : '待绑定'));
+    } else if (['hls', 'mpegts', 'flv'].includes(kind)) info.append(node('span', 'codec-tag', kind === 'hls' ? 'HLS' : kind === 'mpegts' ? 'TS' : 'FLV'));
     info.append(node('small', 'channel-group', channel.group));
     main.append(number, thumb, info);
     main.addEventListener('click', () => selectChannel(channel.id, true));
@@ -106,7 +118,8 @@ function renderCurrent() {
   $('#pageTitle').textContent = channel ? channel.name : '网络电视直播';
   $('#pageSubtitle').textContent = channel ? '来源：' + (state.sources.find(s => s.id === channel.sourceId)?.name || '本地清单') : '从左侧选择频道开始播放';
   $('#currentName').textContent = channel ? channel.name : '选择一个频道开始播放';
-  $('#currentGroup').textContent = channel ? (channel.streams?.length ? channel.streams.length + ' 条播放线路可选择' : '尚未配置播放线路 · 可绑定自己的订阅') : '选择左侧频道开始播放';
+  const validCount = availableStreams(channel).length;
+  $('#currentGroup').textContent = channel ? (validCount ? validCount + ' 条有效候选线路' : '暂无有效播放线路 · 可导入私人清单') : '选择左侧频道开始播放';
   const logoBox = $('#playingLogo');
   logoBox.replaceChildren();
   logoBox.textContent = channel ? channel.name.slice(0, 2).toUpperCase() : '▶';
@@ -116,11 +129,13 @@ function renderCurrent() {
     image.onerror = () => image.remove();
     logoBox.replaceChildren(image);
   }
-  const hasLines = Boolean(channel?.streams?.length);
+  const lines = availableStreams(channel);
+  const hasLines = lines.length > 0;
+  const expired = !hasLines && Boolean(channel?.streams?.some(line => signedStreamExpiry(line.url) !== null));
   $('#videoEmpty').hidden = hasLines;
-  $('#videoEmpty strong').textContent = channel && !hasLines ? '尚未绑定播放线路' : 'MediaHub Live';
+  $('#videoEmpty strong').textContent = channel && !hasLines ? (expired ? '播放链接已到期' : '尚未绑定播放线路') : 'MediaHub Live';
   $('#videoEmpty p').textContent = channel && !hasLines
-    ? channel.name + ' 已在频道表中。可添加有权使用的私人播放地址，或导入 M3U 后匹配。'
+    ? (expired ? '此频道的临时签名链接已失效，请导入新的有效授权清单。' : channel.name + ' 已在频道表中。可添加有权使用的私人播放地址，或导入 M3U 后匹配。')
     : '在左侧选择频道，或导入自己的 M3U 播放列表';
   $('#emptyImport').textContent = channel && !hasLines ? '＋ 为此频道绑定线路' : '＋ 导入播放列表';
   $('#favBtn').textContent = channel && state.favorites.includes(channel.id) ? '★ 已收藏' : '☆ 收藏';
@@ -129,17 +144,17 @@ function renderCurrent() {
   for (const id of ['playBtn', 'retryBtn', 'pipBtn', 'fullBtn']) $('#' + id).disabled = !hasLines;
   $('#bindLineBtn').disabled = !channel || channel.sourceId !== HD_REFERENCE_SOURCE_ID;
   $('#bindLineBtn').textContent = !channel ? '＋ 添加频道线路' : hasLines ? '＋ 添加线路' : '＋ 绑定频道线路';
-  $('#nextLineBtn').disabled = !channel || channel.streams.length < 2;
-  $('#nextLineBtn').textContent = channel?.streams?.length > 1 ? '⇄ 换线路（' + channel.streams.length + '条）' : hasLines ? '只有一条线路' : '暂无线路';
+  $('#nextLineBtn').disabled = lines.length < 2;
+  $('#nextLineBtn').textContent = lines.length > 1 ? '⇄ 换线路（' + lines.length + '条）' : hasLines ? '只有一条线路' : '暂无线路';
   const select = $('#lineSelect'), current = select.value;
   select.replaceChildren();
   if (channel) {
-    channel.streams.forEach((stream, i) => select.add(new Option((stream.label || '线路 ' + (i + 1)) + ' · ' + (stream.kind || 'auto').toUpperCase(), String(i))));
+    lines.forEach((stream, i) => select.add(new Option((stream.label || '线路 ' + (i + 1)) + ' · ' + (stream.kind || 'auto').toUpperCase(), String(i))));
     if ([...select.options].some((o) => o.value === current)) select.value = current;
-    select.disabled = channel.streams.length < 2;
+    select.disabled = lines.length < 2;
   } else { select.add(new Option('无可用线路', '')); select.disabled = true; }
   if (!hasLines) { select.replaceChildren(new Option('尚未绑定播放地址', '')); select.disabled = true; }
-  const stream = channel?.streams?.[Number(select.value) || 0] || channel?.streams?.[0];
+  const stream = lines[Number(select.value) || 0] || lines[0];
   $('#playbackKind').textContent = stream ? (stream.kind === 'hls' ? 'HLS' : stream.kind === 'mpegts' ? 'TS' : stream.kind === 'flv' ? 'FLV' : stream.kind === 'file' ? 'FILE' : 'AUTO') : '—';
   refreshMetrics();
 }
@@ -186,19 +201,20 @@ async function selectChannel(id, autoplay) {
   if (!channel) return;
   if (ui.selected !== id) {
     ui.selected = id; controller.reset(); $('#lineSelect').value = '0';
-    updatePlayback('idle', channel.streams?.length ? '已选择频道，点击播放' : '尚未绑定播放线路');
+    updatePlayback('idle', availableStreams(channel).length ? '已选择频道，点击播放' : '暂无有效播放线路');
     refreshMetrics();
   }
   history.replaceState(null, '', location.pathname + '?ch=' + encodeURIComponent(id));
   await commit(recordRecent(state, id));
-  if (autoplay && channel.streams?.length) playSelected();
+  if (autoplay && availableStreams(channel).length) playSelected();
 }
 function playSelected() {
   const channel = state.channels.find((c) => c.id === ui.selected);
   if (!channel) return;
-  const stream = channel.streams?.[Number($('#lineSelect').value) || 0] || channel.streams?.[0];
+  const active = availableStreams(channel);
+  const stream = active[Number($('#lineSelect').value) || 0] || active[0];
   if (stream) controller.load(stream);
-  else { updatePlayback('idle', '尚未绑定播放线路'); notify('请先为该电视台绑定有权使用的播放地址', 'warn'); }
+  else { updatePlayback('idle', '暂无有效播放线路'); notify('该台缺少有效线路，或已过签名有效期。请重新导入授权清单。', 'warn'); }
 }
 function adjacentChannel(step) {
   const channels = visibleChannels();
@@ -286,7 +302,7 @@ function changeImportMode() {
 }
 function openImport() {
   ui.importMode = 'file';
-  openModal('<div class="modal-eyebrow">ADD PLAYLIST</div><h2>导入你的私人频道</h2><p class="modal-lead">仅导入你有权观看的频道，播放地址不上传到本站服务器。</p><div class="tabbar"><button data-import="file" class="active">本地文件</button><button data-import="paste">粘贴 M3U</button><button data-import="url">订阅 URL</button><button data-import="manual">单个频道</button></div><div class="import-form"><div data-pane="file"><label class="dropzone"><span class="upload-symbol">⇧</span><strong>选择 .m3u / .txt 文件</strong><small>仅浏览器解析 · 最大 20 MB</small><input type="file" id="importFile" accept=".m3u,.m3u8,.txt,text/plain,application/x-mpegURL"></label></div><div data-pane="paste" hidden><label class="form-label">M3U 清单文本<textarea id="importText" rows="7" placeholder="#EXTM3U&#10;#EXTINF:-1,示例频道&#10;https://example.com/live.m3u8"></textarea></label></div><div data-pane="url" hidden><label class="form-label">HTTPS M3U 订阅地址<input type="url" id="importUrl" placeholder="https://example.com/my-playlist.m3u"></label><p class="security-note">需要源站支持 CORS。订阅链接可能含私密令牌，仅保存在本设备。</p></div><div data-pane="manual" hidden><label class="form-label">频道名称<input id="manualName" placeholder="我的频道"></label><label class="form-label">频道分组<input id="manualGroup" placeholder="自定义"></label><label class="form-label">直播地址<input type="url" id="manualUrl" placeholder="https://example.com/live.m3u8"></label><label class="form-label">流类型<select id="manualKind"><option value="auto">自动 / 原生播放</option><option value="hls">HLS (.m3u8)</option><option value="mpegts">MPEG-TS</option><option value="flv">FLV</option><option value="file">MP4 / 媒体文件</option></select></label></div><div id="importPreview" class="import-preview" hidden><strong id="previewTitle"></strong><p id="previewNames"></p></div><div class="form-actions"><button type="button" class="btn secondary" id="importCancel">取消</button><button type="button" class="btn primary" id="prepareBtn">解析并预览</button><button type="button" class="btn primary" id="confirmImport" hidden>确认导入</button></div></div>');
+  openModal('<div class="modal-eyebrow">ADD PLAYLIST</div><h2>导入你的私人频道</h2><p class="modal-lead">仅导入你有权观看的频道，播放地址不上传到本站服务器。</p><div class="tabbar"><button data-import="file" class="active">本地文件</button><button data-import="paste">粘贴 M3U</button><button data-import="url">订阅 URL</button><button data-import="manual">单个频道</button></div><div class="import-form"><div data-pane="file"><label class="dropzone"><span class="upload-symbol">⇧</span><strong>选择 .m3u / .txt 文件</strong><small>仅浏览器解析 · 最大 20 MB</small><input type="file" id="importFile" accept=".m3u,.m3u8,.txt,text/plain,application/x-mpegURL"></label></div><div data-pane="paste" hidden><label class="form-label">M3U 清单文本<textarea id="importText" rows="7" placeholder="#EXTM3U&#10;#EXTINF:-1,示例频道&#10;https://example.com/live.m3u8"></textarea></label></div><div data-pane="url" hidden><label class="form-label">HTTPS M3U 订阅地址<input type="url" id="importUrl" placeholder="https://example.com/my-playlist.m3u"></label><p class="security-note">需要源站支持 CORS。订阅链接可能含私密令牌，仅保存在本设备。</p></div><div data-pane="manual" hidden><label class="form-label">频道名称<input id="manualName" placeholder="我的频道"></label><label class="form-label">频道分组<input id="manualGroup" placeholder="自定义"></label><label class="form-label">直播地址<input type="url" id="manualUrl" placeholder="https://example.com/live.m3u8"></label><label class="form-label">流类型<select id="manualKind"><option value="auto">自动 / 原生播放</option><option value="hls">HLS (.m3u8)</option><option value="mpegts">MPEG-TS</option><option value="flv">FLV</option><option value="file">MP4 / 媒体文件</option></select></label></div><div id="importPreview" class="import-preview" hidden><strong id="previewTitle"></strong><p id="previewNames"></p><p class="security-note" id="previewExpiry" hidden></p></div><div class="form-actions"><button type="button" class="btn secondary" id="importCancel">取消</button><button type="button" class="btn primary" id="prepareBtn">解析并预览</button><button type="button" class="btn primary" id="confirmImport" hidden>确认导入</button></div></div>');
   for (const btn of document.querySelectorAll('[data-import]')) btn.addEventListener('click', () => { ui.importMode = btn.dataset.import; changeImportMode(); });
   $('#importCancel').addEventListener('click', closeModal);
   $('#prepareBtn').addEventListener('click', () => prepareImport({ mode: ui.importMode }));
@@ -347,14 +363,44 @@ async function prepareImport({ mode, file, url, replaceSource, displayName } = {
         name = replaceSource?.name || displayName || '订阅 · ' + new URL(remoteUrl).hostname;
       } else throw new Error('未知导入方式');
       summary = parseM3U(text, id); channels = summary.channels;
-      source = { id, name, type: mode, enabled: replaceSource?.enabled ?? true,
-        createdAt: replaceSource?.createdAt || Date.now(), updatedAt: Date.now() };
+      // Captured lists with HD.Rip's numeric TVG IDs are a private local snapshot,
+      // not a second copy of the public channel directory. A second import replaces
+      // the earlier snapshot and its short-lived signed URLs.
+      const matchedIds = channels.filter(c => /^[1-9]\d{0,5}$/.test(c.tvgId)
+        && Number(c.tvgId) === findReferenceId(c)).length;
+      const matchedSnapshot = ['file','paste'].includes(mode)
+        && channels.length >= 100 && matchedIds >= Math.ceil(channels.length * 0.95);
+      if (matchedSnapshot) {
+        const existing = state.sources.find(item => item.id === PRIVATE_HD_SNAPSHOT_ID);
+        summary = parseM3U(text, PRIVATE_HD_SNAPSHOT_ID);
+        channels = summary.channels;
+        source = {
+          id: PRIVATE_HD_SNAPSHOT_ID, name: '本机 HD.Rip 频道快照',
+          type: mode, enabled: existing?.enabled ?? true,
+          createdAt: existing?.createdAt || Date.now(), updatedAt: Date.now()
+        };
+      } else {
+        source = { id, name, type: mode, enabled: replaceSource?.enabled ?? true,
+          createdAt: replaceSource?.createdAt || Date.now(), updatedAt: Date.now() };
+      }
       if (mode === 'url') source.sourceUrl = safeHttpUrl(url || $('#importUrl').value);
     }
-    ui.pending = { source, channels, replace: Boolean(replaceSource) || source.id === 'manual-source', skipped: summary.skipped, duplicates: summary.duplicates };
+    ui.pending = { source, channels, replace: Boolean(replaceSource) || source.id === 'manual-source' || source.id === PRIVATE_HD_SNAPSHOT_ID, skipped: summary.skipped, duplicates: summary.duplicates };
     $('#importPreview').hidden = false;
-    $('#previewTitle').textContent = channels.length + ' 个频道可导入 · 跳过 ' + summary.skipped + ' 条 · 合并 ' + summary.duplicates + ' 条';
-    $('#previewNames').textContent = channels.slice(0, 8).map((c) => c.name).join(' / ') + (channels.length > 8 ? ' …' : '');
+    const matched = channels.filter(c => findReferenceId(c) !== null).length;
+    $('#previewTitle').textContent = channels.length + ' 个频道可导入 · 自动匹配 ' + matched
+      + ' 台 · 跳过 ' + summary.skipped + ' 条 · 合并 ' + summary.duplicates + ' 条';
+    $('#previewNames').textContent = channels.slice(0, 8).map(c => c.name).join(' / ') + (channels.length > 8 ? ' …' : '');
+    const expiryDates = channels.flatMap(c => c.streams.map(line => signedStreamExpiry(line.url))).filter(Boolean);
+    const warning = $('#previewExpiry');
+    if (expiryDates.length) {
+      const earliest = Math.min(...expiryDates), latest = Math.max(...expiryDates);
+      warning.hidden = false;
+      warning.textContent = '注意：这份清单有 ' + expiryDates.length + ' 条临时签名线路，'
+        + (latest <= Date.now() ? '签名现已全部到期，请重新获取有权使用的有效清单。'
+          : '预计于 ' + new Date(earliest).toLocaleString('zh-CN') + ' 起到期。')
+        + ' 本站不会自动续签；链接只存储于当前浏览器，不会上传到网站或 GitHub。';
+    } else warning.hidden = true;
     $('#confirmImport').hidden = false;
   } catch (error) {
     notify(error instanceof Error ? error.message : '导入失败', 'error');
@@ -397,9 +443,9 @@ async function confirmImport() {
     next = appendSource(state, { ...source, updatedAt: Date.now() },
       [...old.filter((c) => !channels.some((n) => n.id === c.id)), ...channels], true);
   } else next = appendSource(state, source, channels, replace);
-  const matched = matchOwnPlaylist(next);
+  const matched = matchOwnPlaylist(next, { preferSourceId: source.id });
   await commit(matched.state); closeModal();
-  notify('已导入 ' + channels.length + ' 个频道，自动关联 ' + matched.addedLines + ' 条参考频道线路', 'success');
+  notify('已在本机保存 ' + channels.length + ' 个频道，匹配 ' + matched.matchedStations + ' 台（新增 ' + matched.addedLines + ' 条线路）。如需使用请从频道表选台测试。', 'success');
 }
 function exportBackup() {
   if (!confirm('备份文件可能包含私人订阅令牌和直播 URL。确认下载到本设备并妥善保管？')) return;
@@ -466,7 +512,7 @@ function setupEvents() {
   $('#importBtn').addEventListener('click', openImport);
   $('#emptyImport').addEventListener('click', () => {
     const channel = state.channels.find(c => c.id === ui.selected);
-    if (channel?.sourceId === HD_REFERENCE_SOURCE_ID && !channel.streams.length) openBindLine();
+    if (channel?.sourceId === HD_REFERENCE_SOURCE_ID && !availableStreams(channel).length) openBindLine();
     else openImport();
   });
   $('#bindLineBtn').addEventListener('click', openBindLine);
@@ -500,11 +546,12 @@ function setupEvents() {
   $('#lineSelect').addEventListener('change', playSelected);
   $('#nextLineBtn').addEventListener('click', () => {
     const channel = state.channels.find(c => c.id === ui.selected);
-    if (!channel || channel.streams.length < 2) return;
+    const candidates = availableStreams(channel);
+    if (candidates.length < 2) return;
     const select = $('#lineSelect');
-    select.value = String((Number(select.value || 0) + 1) % channel.streams.length);
+    select.value = String((Number(select.value || 0) + 1) % candidates.length);
     playSelected();
-    notify('已切换到：' + channel.streams[Number(select.value)].label, 'info');
+    notify('已切换到：' + candidates[Number(select.value)].label, 'info');
   });
   $('#pipBtn').addEventListener('click', async () => {
     try {

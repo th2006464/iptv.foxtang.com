@@ -88,7 +88,14 @@ export function findReferenceId(channel) {
     const id = Number(String(channel.id || '').replace('ref-', ''));
     return refSet.has(id) ? id : null;
   }
-  // Name is more specific than TVG IDs without region/context.
+  // A captured M3U can carry exactly the channel numbers from the public
+  // reference list. This is more reliable than names: 中视 and TLC are duplicated.
+  const numericId = String(channel?.tvgId || '').trim();
+  if (/^[1-9]\d{0,5}$/.test(numericId)) {
+    const id = Number(numericId);
+    if (refSet.has(id)) return id;
+  }
+  // Other M3U feeds may use broadcaster TVG IDs/names.
   for (const label of candidateNames(channel)) {
     const matches = nameLookup.get(normalize(label));
     if (matches?.size === 1) return [...matches][0];
@@ -219,7 +226,7 @@ export function addReferenceStream(state, channelId, url, label = '个人添加�
   if (streams.length === channel.streams.length) return state;
   return { ...state, channels: state.channels.map(c => c.id === channelId ? { ...c, streams } : c) };
 }
-export function matchOwnPlaylist(state) {
+export function matchOwnPlaylist(state, { preferSourceId = null } = {}) {
   const ownSourceIds = new Set(state.sources.filter(s => s.id !== HD_REFERENCE_SOURCE_ID
     && s.type !== 'builtin' && s.enabled !== false).map(s => s.id));
   const ownChannels = state.channels.filter(c => ownSourceIds.has(c.sourceId));
@@ -233,7 +240,8 @@ export function matchOwnPlaylist(state) {
     const ref = state.channels.find(c => c.id === key && c.sourceId === HD_REFERENCE_SOURCE_ID);
     if (!ref) continue;
     const filtered = streams.map((item,i) => ({
-      ...item, label: '我的订阅 · ' + (state.sources.find(s => s.id === channel.sourceId)?.name || '频道') + ' ' + (i + 1)
+      ...item, sourceId: channel.sourceId,
+      label: '我的订阅 · ' + (state.sources.find(s => s.id === channel.sourceId)?.name || '频道') + ' ' + (i + 1)
     }));
     const prior = additions.get(key) || [];
     additions.set(key, [...prior, ...filtered]);
@@ -243,7 +251,13 @@ export function matchOwnPlaylist(state) {
   const channels = state.channels.map(channel => {
     const extra = additions.get(channel.id);
     if (!extra) return channel;
-    const streams = combineStreams([...channel.streams, ...extra], 12, true);
+    // Newly imported personal lists should be tried before stale, older public
+    // mirrors; re-importing a refreshed signed list replaces the old preference.
+    const priority = preferSourceId
+      ? extra.filter(stream => stream.sourceId === preferSourceId)
+      : [];
+    const other = extra.filter(stream => stream.sourceId !== preferSourceId);
+    const streams = combineStreams([...priority, ...channel.streams, ...other], 12, true);
     addedLines += streams.length - channel.streams.length;
     return { ...channel, streams };
   });
