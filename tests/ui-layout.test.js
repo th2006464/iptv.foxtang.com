@@ -49,3 +49,10 @@ test('responsive screen places viewer above scrollable channel panel on phones',
   assert.match(css, /\.sidebar\{order:1;/);
   assert.match(css, /aspect-ratio:16\/9/);
 });
+
+test('default mobile and desktop channel list displays all 184 reference stations without pagination', () => {
+  assert.match(js, /visible: 250/);
+  assert.equal((js.match(/ui\.visible = 150/g) || []).length, 0);
+  assert.match(html, /id="bindLineBtn"/);
+  assert.match(js, /installReferenceCatalog\(state\)/);
+});
