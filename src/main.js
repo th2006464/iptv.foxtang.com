@@ -1,13 +1,13 @@
 import { parseM3U, makeManualChannel, safeHttpUrl, MAX_IMPORT_BYTES } from './playlist.js';
 import { EMPTY_STATE, loadState, saveState, appendSource, removeSource, toggleFavorite, recordRecent } from './store.js';
 import { PlayerController } from './player.js';
-import { PUBLIC_SOURCE, PUBLIC_SOURCE_ID, PUBLIC_BOOTSTRAP_FLAG, getPublicChannels } from './public-catalog.js';
 import { GITHUB_PLAYLISTS } from './github-sources.js';
-import { AUTO_CATALOG, loadAutoCatalog } from './auto-catalog.js';
+import { PUBLIC_SOURCE_ID, getPublicChannels } from './public-catalog.js';
+import { CURATED_SOURCE_ID, installCuratedCatalog, refreshCuratedCatalog } from './curated-catalog.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
-let prefs = { theme: 'dark', logos: false, volume: 0.8, muted: false };
+let prefs = { theme: 'dark', logos: true, volume: 0.8, muted: false };
 try {
   const saved = JSON.parse(localStorage.getItem(settingsKey) || '{}');
   if (['dark', 'light'].includes(saved.theme)) prefs.theme = saved.theme;
@@ -103,7 +103,7 @@ function renderList() {
     const main = node('button', 'channel-main'); main.type = 'button'; main.title = channel.name;
     const number = node('span', 'channel-number', String(index + 1).padStart(2, '0'));
     const thumb = node('span', 'channel-thumb', channel.name.slice(0, 2).toUpperCase());
-    if (channel.logo) {
+    if (prefs.logos && channel.logo) {
       const img = document.createElement('img'); img.src = channel.logo; img.alt = '';
       img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.onerror = () => img.remove();
       thumb.append(img);
@@ -144,7 +144,7 @@ function renderCurrent() {
   const logoBox = $('#playingLogo');
   logoBox.replaceChildren();
   logoBox.textContent = channel ? channel.name.slice(0, 2).toUpperCase() : '▶';
-  if (channel?.logo) {
+  if (prefs.logos && channel?.logo) {
     const image = document.createElement('img');
     image.src = channel.logo; image.alt = ''; image.referrerPolicy = 'no-referrer';
     image.onerror = () => image.remove();
@@ -154,6 +154,8 @@ function renderCurrent() {
   $('#favBtn').textContent = channel && state.favorites.includes(channel.id) ? '★ 已收藏' : '☆ 收藏';
   $('#favBtn').disabled = !channel;
   for (const id of ['prevBtn', 'nextBtn', 'playBtn', 'retryBtn', 'pipBtn', 'fullBtn']) $('#' + id).disabled = !channel;
+  $('#nextLineBtn').disabled = !channel || channel.streams.length < 2;
+  $('#nextLineBtn').textContent = channel?.streams?.length > 1 ? '⇄ 换线路（' + channel.streams.length + '条）' : '只有一条线路';
   const select = $('#lineSelect'), current = select.value;
   select.replaceChildren();
   if (channel) {
@@ -239,13 +241,28 @@ function openModal(markup) {
 function closeModal() { $('#modal').hidden = true; ui.pending = null; }
 function sourceRow(source) {
   const row = node('div', 'source-row'), info = node('div', 'source-info');
-  info.append(node('strong', '', source.name), node('small', '', state.channels.filter((c) => c.sourceId === source.id).length + ' 个频道 · ' + ({ remote: 'HTTPS 订阅', paste: '粘贴文本', file: '本地文件', manual: '手动添加', builtin: '默认公共频道 · 第三方来源' }[source.type] || source.type)));
+  info.append(node('strong', '', source.name), node('small', '', state.channels.filter((c) => c.sourceId === source.id).length + ' 个频道 · ' + ({ remote: 'HTTPS 订阅', paste: '粘贴文本', file: '本地文件', manual: '手动添加', builtin: '精选电视台 · 多条公开线路' }[source.type] || source.type)));
   const buttons = node('div', 'source-actions');
   const toggle = node('button', 'btn small subtle', source.enabled ? '停用' : '启用');
   toggle.addEventListener('click', async () => {
     await commit({ ...state, sources: state.sources.map((s) => s.id === source.id ? { ...s, enabled: !s.enabled } : s) }); openManage();
   });
   buttons.append(toggle);
+  if (source.id === CURATED_SOURCE_ID) {
+    const refresh = node('button', 'btn small secondary', '↻ 更新公共线路');
+    refresh.addEventListener('click', async () => {
+      refresh.disabled = true; refresh.textContent = '更新中…';
+      try {
+        await commit(await refreshCuratedCatalog(state));
+        notify('已从公开 GitHub 清单更新现有电视台的候选线路', 'success');
+        openManage();
+      } catch (error) {
+        notify(error instanceof Error ? error.message : '无法更新公共线路', 'error');
+        refresh.disabled = false; refresh.textContent = '↻ 更新公共线路';
+      }
+    });
+    buttons.append(refresh);
+  }
   if (source.type === 'remote' && source.sourceUrl) {
     const refresh = node('button', 'btn small subtle', '更新');
     refresh.addEventListener('click', async () => {
@@ -255,6 +272,7 @@ function sourceRow(source) {
     });
     buttons.append(refresh);
   }
+  if (source.id !== CURATED_SOURCE_ID) {
   const del = node('button', 'btn small danger', '删除');
   del.addEventListener('click', async () => {
     if (!confirm('确认删除“' + source.name + '”及其全部频道？其他来源不受影响。')) return;
@@ -264,7 +282,9 @@ function sourceRow(source) {
     }
     await commit(removeSource(state, source.id)); openManage();
   });
-  buttons.append(del); row.append(info, buttons);
+  buttons.append(del);
+  }
+  row.append(info, buttons);
   return row;
 }
 function openManage() {
@@ -382,7 +402,7 @@ function exportBackup() {
 function sanitizeBackup(value) {
   if (value?.format !== 'fox-iptv-backup-v1' || !value.data || !Array.isArray(value.data.sources) || !Array.isArray(value.data.channels)) throw new Error('不支持此备份格式');
   if (value.data.sources.length > 300 || value.data.channels.length > 15000) throw new Error('备份的数据量超过上限');
-  const sources = value.data.sources.filter((s) => typeof s.id === 'string' && s.id.length <= 100 && typeof s.name === 'string' && s.name.length <= 160 && (['file', 'paste', 'remote', 'manual'].includes(s.type) || (s.type === 'builtin' && s.id === PUBLIC_SOURCE_ID)))
+  const sources = value.data.sources.filter((s) => typeof s.id === 'string' && s.id.length <= 100 && typeof s.name === 'string' && s.name.length <= 160 && (['file', 'paste', 'remote', 'manual'].includes(s.type) || (s.type === 'builtin' && [PUBLIC_SOURCE_ID, CURATED_SOURCE_ID].includes(s.id))))
     .map((s) => ({ id: s.id, name: s.name, type: s.type, enabled: s.enabled !== false, createdAt: Number(s.createdAt) || Date.now(), updatedAt: Number(s.updatedAt) || Date.now(),
       ...(s.type === 'remote' && safeHttpUrl(s.sourceUrl)?.startsWith('https://') ? { sourceUrl: safeHttpUrl(s.sourceUrl) } : {}) }));
   const ids = new Set(sources.map((s) => s.id));
@@ -426,7 +446,7 @@ function openRestore() {
       const file = e.target.files?.[0];
       if (!file) return;
       if (file.size > MAX_IMPORT_BYTES) throw new Error('备份不能超过 20 MB');
-      const restored = sanitizeBackup(JSON.parse(await file.text()));
+      const restored = installCuratedCatalog(sanitizeBackup(JSON.parse(await file.text())));
       if (!confirm('确认替换本设备现有的 ' + state.channels.length + ' 个频道？')) return;
       controller.reset(); ui.selected = null; ui.group = 'all'; ui.source = 'all'; ui.filter = 'all';
       await commit(restored); closeModal(); notify('备份恢复成功，已导入 ' + restored.channels.length + ' 个频道', 'success');
@@ -470,6 +490,14 @@ function setupEvents() {
   $('#retryBtn').addEventListener('click', playSelected);
   $('#favBtn').addEventListener('click', () => { if (ui.selected) commit(toggleFavorite(state, ui.selected)); });
   $('#lineSelect').addEventListener('change', playSelected);
+  $('#nextLineBtn').addEventListener('click', () => {
+    const channel = state.channels.find(c => c.id === ui.selected);
+    if (!channel || channel.streams.length < 2) return;
+    const select = $('#lineSelect');
+    select.value = String((Number(select.value || 0) + 1) % channel.streams.length);
+    playSelected();
+    notify('已切换到：' + channel.streams[Number(select.value)].label, 'info');
+  });
   $('#pipBtn').addEventListener('click', async () => {
     try {
       if (!document.pictureInPictureEnabled || !video.requestPictureInPicture) throw new Error('no pip');
@@ -501,40 +529,12 @@ function setupEvents() {
   window.addEventListener('offline', () => notify('当前设备离线，直播可能中断', 'warn'));
   window.addEventListener('beforeunload', () => controller.destroy());
 }
-async function refreshAutoCatalog() {
-  const installed = state.sources.find(s => s.id === AUTO_CATALOG.id);
-  const last = Number(installed?.updatedAt || 0);
-  if (installed && Date.now() - last < 24 * 60 * 60 * 1000) return;
-  try {
-    const result = await loadAutoCatalog();
-    if (!result.channels.length) throw new Error('公共清单为空');
-    const previous = state.sources.find(s => s.id === AUTO_CATALOG.id);
-    const source = { id: AUTO_CATALOG.id, name: AUTO_CATALOG.name, type: 'url', sourceUrl: AUTO_CATALOG.url,
-      enabled: previous?.enabled ?? true, createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now() };
-    await commit(appendSource(state, source, result.channels, Boolean(previous)));
-    notify('公共频道库已更新：' + result.channels.length + ' 个频道，可在左侧选择观看', 'success');
-  } catch (error) {
-    console.warn('Public catalog unavailable; local channels remain available:', error?.message || error);
-    if (!state.channels.length) notify('公共频道加载失败。可重试刷新页面，或导入自己的 M3U 清单。', 'error');
-  }
-}
-async function init() {
+async async function init() {
   setupEvents(); theme();
   try { state = await loadState(); }
   catch { canPersist = false; notify('IndexedDB 无法使用：频道和收藏只在当前页面有效', 'error'); }
-  // Bootstrap defaults just once per browser. Removing the public source is respected.
-  const alreadyInstalled = state.sources.some((source) => source.id === PUBLIC_SOURCE_ID);
-  if (alreadyInstalled) { try { localStorage.setItem(PUBLIC_BOOTSTRAP_FLAG, '1'); } catch { /* Private mode. */ } }
-  let addPublic = !alreadyInstalled;
-  try { addPublic = addPublic && localStorage.getItem(PUBLIC_BOOTSTRAP_FLAG) !== '1'; }
-  catch { addPublic = addPublic && state.sources.length === 0; }
-  if (addPublic) {
-    await commit(appendSource(state, { ...PUBLIC_SOURCE, createdAt: Date.now(), updatedAt: Date.now() }, getPublicChannels()));
-    try { localStorage.setItem(PUBLIC_BOOTSTRAP_FLAG, '1'); } catch { /* Private mode: no persistent flag. */ }
-    notify('已添加 18 个公开直播频道；受地区和浏览器兼容性限制，部分频道可能无法播放', 'success');
-  }
-  // Nonblocking catalog refresh: never discard existing saved or private playlists.
-  void refreshAutoCatalog();
+  // Bundled curated channels load instantly; replace the 18 + global defaults.
+  await commit(installCuratedCatalog(state));
   const sharedId = new URL(location.href).searchParams.get('ch');
   if (sharedId && state.channels.some((c) => c.id === sharedId)) {
     ui.selected = sharedId; updatePlayback('idle', '已载入分享频道，点击播放');
