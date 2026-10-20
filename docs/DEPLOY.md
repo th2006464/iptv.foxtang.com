@@ -2,9 +2,9 @@
 
 ## 执行边界
 
-Luna 负责 PR 核对、验证、标准 Merge Commit 合并、Cloudflare Pages 部署和结果汇报。Luna 不负责开发或修改业务代码。浏览器验收由使用者负责。遇到失败按 STOP 规则停下并反馈日志摘要。
+本项目由开发者完成 GitHub PR 合并；后续如由 Luna 执行部署，Luna 只负责 Cloudflare Pages 构建、域名绑定及部署回报，不要求修改代码。**第一版公开访问：不配置 Cloudflare Access、身份验证或访问白名单。** UI、频道导入和直播播放验收由使用者在上线后自行完成。
 
-## 合并前门槛
+## GitHub 合并验证门槛（由开发者执行）
 
 1. 检查 PR Head SHA 与交接指定值完全相同，PR 可合并。
 2. 在干净 checkout 上依次执行：
@@ -22,9 +22,9 @@ Luna 负责 PR 核对、验证、标准 Merge Commit 合并、Cloudflare Pages �
 1. Cloudflare → Workers & Pages → Pages → Connect to Git，连接 th2006464/iptv.foxtang.com。
 2. Production branch 为 main，Framework preset 为 None，build command 为 npm run build，output directory 为 dist，Node 22。
 3. 绑定自定义域名 iptv.foxtang.com，并确认 TLS 证书和路由生效。
-4. 对 iptv.foxtang.com 建立 Cloudflare Access 身份认证，只授权本人。
-5. 检查 Pages 默认 *.pages.dev 域名和所有 PR Preview URL 是否可绕开 Access；不可保护时停止正式公开使用并先处理公开入口。
-6. 不创建 D1、R2、Workers、代理服务或上传真实 IPTV 凭据；这个 MVP 不需要任何后端环境变量。
+4. **不创建 Cloudflare Access**，不配置登录认证、访问白名单或其他私有站点限制。自定义域名和 Pages 默认/预览链接公开可访问，是首版的预期状态。
+5. 上线前仅核对构建与域名/HTTPS 是否正常，页面 UI、设备兼容与真实播放留给使用者发布后验收，不因这些手工验收尚未完成而阻止本次部署。
+6. 不创建 D1、R2、Workers、视频代理或上传真实 IPTV 凭据；MVP 无后端环境变量。
 
 ## 生产验收交给使用者
 
@@ -35,15 +35,14 @@ Luna 负责 PR 核对、验证、标准 Merge Commit 合并、Cloudflare Pages �
 - 至少用一条授权 HTTPS HLS 在桌面、手机实测。能否播放取决于源站与终端。
 - 使用没有 CORS 的订阅时有明确提示，不默默假装成功。
 - 手机频道列表可滚动；深浅主题切换正确。
-- Cloudflare Access 对未授权访问拦截，检查 pages.dev 路径。
+- 公开访问不要求登录，包括自定义域名和 Pages 默认地址；确认未意外启用 Cloudflare Access。
 
 ## STOP 条件
 
 - 任何代码测试/构建失败，PR Head SHA 不符或工作区不干净
 - 发现真实私人源、Token 或未经授权的流媒体内容提交到仓库
-- Cloudflare Access 未配置或绕过路径未核实
 - 新部署产生意外路由、鉴权和安全回归
 
 ## 回报内容
 
-PR 编号与 URL、Head SHA、Merge Commit SHA、测试结果、Pages Deployment ID、生产域名及部署结果，最后明确指出浏览器真实源播放验收由用户完成。**Luna 不需也不应索取真实 M3U 凭据。**
+PR 编号与 URL、Head SHA、Merge Commit SHA、测试结果、Pages Deployment ID、公开访问状态、生产域名及部署结果，最后明确指出网页/UI/真实源播放验收由用户在上线后完成。**Luna 不需也不应索取真实 M3U 凭据。**

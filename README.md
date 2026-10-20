@@ -31,7 +31,11 @@
 - Production branch：main
 - 推荐 Node.js：22
 
-部署前请参阅 docs/DEPLOY.md、docs/TEST_PLAN.md。使用 Cloudflare Access 保护 iptv.foxtang.com，另行检查 Pages 默认域名与 PR 预览域名的访问控制。
+部署前请参阅 docs/DEPLOY.md、docs/TEST_PLAN.md。**首版为公开测试站点：不配置 Cloudflare Access，也不要求登录。** 自定义域名和 Pages 默认地址可以公开访问；上线后的浏览器功能由使用者验收，后续如需登录保护再单独规划。
+
+## 公开站点说明
+
+这个项目部署的是**公开可访问的播放器前端**，不是公共电视直播服务；站点不内置、不存储服务器端频道源。每个人导入的清单只保存在自己的浏览器中，不会因为站点公开而自动公开。但 IndexedDB 并未加密，访问浏览器的其他本机用户或扩展可能读取清单。不要在公共设备导入敏感订阅。
 
 ## 安全与限制
 
