@@ -81,3 +81,15 @@ button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{
  .channel-nav{order:initial}
  .metrics .metric{font-size:10px}
 }
+
+/* Curated lineup: make multi-line switching discoverable without crowding the theater. */
+.next-line-btn{color:var(--accent)!important;border-color:#328aac77!important;background:#18354844!important;white-space:nowrap}
+.next-line-btn:not(:disabled):hover{background:#1c536166!important;color:#b1ebfb!important}
+@media(max-width:780px){
+  .now-bottom .next-line-btn{flex:0 0 auto;font-size:11px}
+  .line-field select{max-width:min(42vw,220px)}
+}
+@media(max-width:440px){
+  .now-bottom .next-line-btn{min-height:33px;padding:6px 8px}
+  .line-field select{max-width:137px}
+}

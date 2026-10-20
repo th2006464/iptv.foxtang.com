@@ -94,6 +94,7 @@
       </div>
       <div class="now-bottom">
         <div class="line-control"><label class="line-field">播放线路 <select id="lineSelect" aria-label="选择播放线路" disabled><option>无可用线路</option></select></label></div>
+        <button class="btn secondary thin next-line-btn" id="nextLineBtn" type="button" disabled title="切换到当前频道的下一条公开线路">⇄ 换线路</button>
         <button class="btn subtle thin" id="retryBtn" disabled title="重新连接直播">↻ 重新连接</button>
         <button class="btn subtle thin" id="pipBtn" disabled title="画中画">▣ 画中画</button>
         <button class="btn subtle thin" id="fullBtn" disabled title="全屏播放">⛶ 全屏</button>
@@ -101,7 +102,7 @@
       </div>
     </section>
     <div class="screen-footer">
-      <span>MEDIAHUB LIVE · 仅使用有权访问的直播源</span>
+      <span>MEDIAHUB LIVE · 精选公开频道 · 播放线路按需切换</span>
       <button type="button" id="infoImport">探索 GitHub 公开频道 →</button>
       <span class="sr-only">频道数 <span id="statChannels">0</span>，收藏数 <span id="statFav">0</span>，来源数 <span id="statSources">0</span></span>
       <span class="sr-only" id="pageTitle">直播播放</span>
