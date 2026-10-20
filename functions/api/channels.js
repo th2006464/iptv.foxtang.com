@@ -5,7 +5,7 @@ import { createBackendPayload } from '../../src/backend-catalog.js';
 
 const RESPONSE_HEADERS = Object.freeze({
   'Content-Type': 'application/json; charset=utf-8',
-  'Cache-Control': 'public, max-age=300, s-maxage=3600',
+  'Cache-Control': 'public, max-age=0, s-maxage=3600',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer'
 });
@@ -42,7 +42,12 @@ export async function buildPublicCatalog(fetcher = fetch) {
 export async function onRequestGet(context) {
   const request = context.request;
   const cache = globalThis.caches?.default;
-  const key = new Request(new URL('/api/channels', request.url).href);
+  // Version the cache key per application release; Pages Cache API entries outlive
+  // individual deployments. Reusing /api/channels returned stale 15-channel
+  // data after v12 had added 4 publicly broadcast stations.
+  const revision = /^[a-f\d]{8,64}$/i.test(context.env?.CF_PAGES_COMMIT_SHA || '')
+    ? context.env.CF_PAGES_COMMIT_SHA : '20261020-freehls13';
+  const key = new Request(new URL('/api/channels?build=' + revision, request.url).href);
   if (cache) {
     try {
       const hit = await cache.match(key);
