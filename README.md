@@ -71,6 +71,21 @@ HD.Rip 临时签名 URL 中的 `e` 可能表示过期时间。导入预览会显
 
 具体使用说明：[docs/LOCAL_M3U_IMPORT.md](docs/LOCAL_M3U_IMPORT.md)。
 
+## Cloudflare Pages 后台公开线路接口（v11）
+
+网站继续保持公开，频道目录和 UI 不变。Git 集成的 Cloudflare Pages Functions 自动生成
+`GET /api/channels`，返回 184 台参考目录的频道号与经白名单核验的**公开免费**候选播放线路。
+浏览器在加载本地 184 台频道后会异步从该接口同步，无需手动导入，不占用 D1/R2/Worker 独立项目。
+
+- 只对白名单内公开免费播出节目提供中央线路；其他 HD.Rip 参考台名（包括付费频道）仍显示在频道表，未核实其公开转播授权时，API 对这些台返回空线路。
+- 后台尝试从 `iptv-org` 和 `Free-TV/IPTV` 读取更新后的公开索引，只补充既有免费白名单对应频道；在上游超时/失败时回退到本仓库已有候选线路快照。
+- 接口在 Cloudflare 边缘缓存约 1 小时，页面缓存约 5 分钟。端点只提供公开频道元数据，不传送、代理或重发布视频流。
+- API 对访问令牌、签名 URL、HD.Rip 主机和仅有付费身份的台严格过滤。不能把来源不明的付费频道链接偷偷藏在后台，再无登录地公开分发。
+- 用户若自行导入合法私人 M3U，其签名/URL 只保留在本浏览器 IndexedDB；后台同步不会上传、覆盖私人线路或清空收藏。
+- 不新增 Cloudflare Access，不影响别的 `foxtang.com` 项目。
+
+部署后必须核实 Cloudflare Pages 构建成功、`/api/channels` 返回 JSON、频道数为 184 并且签名敏感内容不出现在响应中。生产浏览器播放是否成功仍需逐台验证。
+
 ## Cloudflare Pages
 
 - Framework preset：None
