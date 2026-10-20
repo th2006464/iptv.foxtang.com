@@ -37,7 +37,8 @@ function savePrefs() {
 }
 function theme() {
   document.documentElement.dataset.theme = prefs.theme;
-  $('#themeBtn').textContent = prefs.theme === 'dark' ? '☀ 浅色' : '☾ 深色';
+  $('#themeBtn').textContent = prefs.theme === 'dark' ? '☾' : '☀';
+  $('#themeBtn').title = prefs.theme === 'dark' ? '切换浅色主题' : '切换深色主题';
 }
 async function commit(next) {
   if (canPersist) {
@@ -96,9 +97,10 @@ function renderGroups() {
 function renderList() {
   const filtered = visibleChannels(), list = $('#channelList');
   list.replaceChildren();
-  for (const channel of filtered.slice(0, ui.visible)) {
+  for (const [index, channel] of filtered.slice(0, ui.visible).entries()) {
     const row = node('div', 'channel-row' + (ui.selected === channel.id ? ' selected' : ''));
     const main = node('button', 'channel-main'); main.type = 'button'; main.title = channel.name;
+    const number = node('span', 'channel-number', String(index + 1).padStart(2, '0'));
     const thumb = node('span', 'channel-thumb', channel.name.slice(0, 2).toUpperCase());
     if (prefs.logos && channel.logo) {
       const img = document.createElement('img'); img.src = channel.logo; img.alt = '';
@@ -106,8 +108,11 @@ function renderList() {
       thumb.append(img);
     }
     const info = node('span', 'channel-info');
-    info.append(node('span', 'channel-title', channel.name), node('small', 'channel-group', channel.group));
-    main.append(thumb, info);
+    info.append(node('span', 'channel-title', channel.name));
+    const kind = channel.streams?.[0]?.kind || 'auto';
+    if (['hls', 'mpegts', 'flv'].includes(kind)) info.append(node('span', 'codec-tag', kind === 'hls' ? 'HLS' : kind === 'mpegts' ? 'TS' : 'FLV'));
+    info.append(node('small', 'channel-group', channel.group));
+    main.append(number, thumb, info);
     main.addEventListener('click', () => selectChannel(channel.id, true));
     const starred = state.favorites.includes(channel.id);
     const star = node('button', 'channel-star' + (starred ? ' is-starred' : ''), starred ? '★' : '☆');
@@ -131,21 +136,54 @@ function renderList() {
 }
 function renderCurrent() {
   const channel = state.channels.find((c) => c.id === ui.selected);
-  $('#pageTitle').textContent = channel ? channel.name : '你的私人直播空间';
-  $('#pageSubtitle').textContent = channel ? '频道分组 · ' + channel.group : '选择公共频道，或从 GitHub 频道库导入更多直播清单。';
-  $('#currentName').textContent = channel ? channel.name : '尚未选择频道';
-  $('#currentGroup').textContent = channel ? channel.group : '添加你有权观看的直播源';
+  $('#pageTitle').textContent = channel ? channel.name : '网络电视直播';
+  $('#pageSubtitle').textContent = channel ? '来源：' + (state.sources.find(s => s.id === channel.sourceId)?.name || '本地清单') : '从左侧选择频道开始播放';
+  $('#currentName').textContent = channel ? channel.name : '选择一个频道开始播放';
+  $('#currentGroup').textContent = channel ? channel.group : '支持 HLS、MPEG-TS 和个人播放列表';
+  $('#playingLogo').textContent = channel ? channel.name.slice(0, 2).toUpperCase() : '▶';
   $('#videoEmpty').hidden = Boolean(channel);
-  $('#favBtn').textContent = channel && state.favorites.includes(channel.id) ? '★' : '☆';
+  $('#favBtn').textContent = channel && state.favorites.includes(channel.id) ? '★ 已收藏' : '☆ 收藏';
   $('#favBtn').disabled = !channel;
   for (const id of ['prevBtn', 'nextBtn', 'playBtn', 'retryBtn', 'pipBtn', 'fullBtn']) $('#' + id).disabled = !channel;
   const select = $('#lineSelect'), current = select.value;
   select.replaceChildren();
   if (channel) {
-    channel.streams.forEach((stream, i) => select.add(new Option((stream.label || '线路 ' + (i + 1)) + ' · ' + stream.kind.toUpperCase(), String(i))));
+    channel.streams.forEach((stream, i) => select.add(new Option((stream.label || '线路 ' + (i + 1)) + ' · ' + (stream.kind || 'auto').toUpperCase(), String(i))));
     if ([...select.options].some((o) => o.value === current)) select.value = current;
     select.disabled = channel.streams.length < 2;
   } else { select.add(new Option('无可用线路', '')); select.disabled = true; }
+  const stream = channel?.streams?.[Number(select.value) || 0] || channel?.streams?.[0];
+  $('#playbackKind').textContent = stream ? (stream.kind === 'hls' ? 'HLS' : stream.kind === 'mpegts' ? 'TS' : stream.kind === 'flv' ? 'FLV' : stream.kind === 'file' ? 'FILE' : 'AUTO') : '—';
+  refreshMetrics();
+}
+function refreshMetrics() {
+  const exists = Boolean(state.channels.find(c => c.id === ui.selected));
+  const w = video.videoWidth, h = video.videoHeight;
+  $('#resolutionText').textContent = exists && w && h ? w + '×' + h : '—';
+  let bufferedSeconds = 0;
+  if (exists && Number.isFinite(video.currentTime) && video.buffered?.length) {
+    for (let i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= video.currentTime && video.buffered.end(i) >= video.currentTime) {
+        bufferedSeconds = Math.max(0, video.buffered.end(i) - video.currentTime);
+        break;
+      }
+    }
+  }
+  $('#bufferText').textContent = bufferedSeconds.toFixed(1) + 's';
+  let codec = '—';
+  let declaredBitrate = '—';
+  const hls = controller.kind === 'hls' && controller.instance && Array.isArray(controller.instance.levels)
+    ? controller.instance : null;
+  if (exists && hls && hls.levels.length) {
+    const level = hls.levels[hls.currentLevel >= 0 ? hls.currentLevel : 0];
+    if (level) {
+      const videoCodec = level.videoCodec || '';
+      codec = /^(hvc1|hev1)/i.test(videoCodec) ? 'H.265' : /^(avc1|avc3)/i.test(videoCodec) ? 'H.264' : videoCodec ? videoCodec.slice(0, 18) : '—';
+      if (Number.isFinite(level.bitrate) && level.bitrate > 0) declaredBitrate = (level.bitrate / 1e6).toFixed(2) + ' Mbps';
+    }
+  }
+  $('#codecText').textContent = codec;
+  $('#bitrateText').textContent = declaredBitrate;
 }
 function render() {
   const enabled = activeChannels();
@@ -166,6 +204,7 @@ async function selectChannel(id, autoplay) {
   if (ui.selected !== id) {
     ui.selected = id; controller.reset(); $('#lineSelect').value = '0';
     updatePlayback('idle', '已选择频道，点击播放');
+    refreshMetrics();
   }
   history.replaceState(null, '', location.pathname + '?ch=' + encodeURIComponent(id));
   await commit(recordRecent(state, id));
@@ -389,6 +428,16 @@ function setupEvents() {
   for (const id of ['importBtn', 'emptyImport']) $('#' + id).addEventListener('click', openImport);
   $('#infoImport').addEventListener('click', openGitHubLibrary);
   $('#manageBtn').addEventListener('click', openManage);
+  $('#sideGithubBtn').addEventListener('click', openGitHubLibrary);
+  $('#shareBtn').addEventListener('click', async () => {
+    const address = new URL(window.location.href);
+    address.search = '';
+    if (ui.selected) address.searchParams.set('ch', ui.selected);
+    try {
+      await navigator.clipboard.writeText(address.href);
+      notify(ui.selected ? '频道链接已复制。另一设备需要导入相同清单才能播放。' : '网站链接已复制', 'success');
+    } catch { notify('无法自动复制，请从浏览器地址栏复制链接', 'warn'); }
+  });
   $('#githubBtn').addEventListener('click', openGitHubLibrary);
   $('#themeBtn').addEventListener('click', () => { prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark'; theme(); savePrefs(); });
   $('#modalClose').addEventListener('click', closeModal);
@@ -427,6 +476,8 @@ function setupEvents() {
     } catch { notify('当前设备不支持此全屏方式，请使用视频自带全屏键', 'warn'); }
   });
   video.addEventListener('volumechange', () => { prefs.volume = video.volume; prefs.muted = video.muted; savePrefs(); });
+  for (const event of ['loadedmetadata', 'progress', 'durationchange', 'timeupdate', 'emptied']) video.addEventListener(event, refreshMetrics);
+  setInterval(refreshMetrics, 1200);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !$('#modal').hidden) closeModal();
     if (!$('#modal').hidden || ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;

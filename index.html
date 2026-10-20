@@ -1,71 +1,120 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1020"><meta name="referrer" content="no-referrer">
-<meta name="description" content="MediaHub Live — 公开频道与个人 M3U/IPTV 直播播放器。清单和收藏保存在当前浏览器。">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1019">
+<meta name="referrer" content="no-referrer">
+<meta name="description" content="MediaHub Live · 在线电视直播、GitHub 公共频道与个人 M3U 播放清单">
 <link rel="icon" href="/media.png" type="image/png" sizes="any">
 <link rel="apple-touch-icon" href="/media.png">
 <link rel="stylesheet" href="/src/styles.css">
-<title>MediaHub Live · 网络电视直播</title>
+<title>MediaHub Live · 在线直播影院</title>
 </head>
 <body>
 <div id="app">
 <header class="topbar">
- <div class="brand"><div class="brand-mark"><img src="/media.png" alt="" width="32" height="32"></div><div><strong>MediaHub Live</strong><small>LIVE · STREAM · CHANNELS</small></div></div>
- <div class="topbar-middle"><span class="live-pulse"></span><span>私人直播影院</span><span class="topbar-separator">/</span><span id="topCount">0 个频道</span></div>
- <div class="top-actions"><button type="button" class="btn subtle" id="themeBtn">☾ 深色</button><button type="button" class="btn subtle" id="githubBtn">◈ <span>GitHub 频道库</span></button><button type="button" class="btn subtle" id="manageBtn">⚙ <span>源管理</span></button><button type="button" class="btn primary" id="importBtn">＋ 导入频道</button></div>
+  <div class="brand">
+    <div class="brand-mark"><img src="/media.png" alt="" width="32" height="32"></div>
+    <div class="brand-type"><strong>MediaHub <span>Live</span></strong><small>IPTV LIVE THEATER</small></div>
+  </div>
+  <div class="top-status">
+    <div class="top-chip channel-chip"><span class="live-pulse" aria-hidden="true"></span><span>共 <b id="topCount">0 个频道</b></span></div>
+    <div class="top-chip engine-chip">hls.js · MSE H.264 · 原生 HLS · mpegts</div>
+    <div class="top-chip secondary-chip">浏览器直连模式</div>
+  </div>
+  <div class="top-actions">
+    <button type="button" class="header-icon" id="themeBtn" aria-label="切换明暗主题" title="切换主题">☾</button>
+    <button type="button" class="header-icon" id="shareBtn" aria-label="分享当前频道" title="复制频道链接">♧</button>
+    <button type="button" class="btn subtle" id="githubBtn">◈ <span>GitHub 频道库</span></button>
+    <button type="button" class="btn subtle" id="manageBtn">⚙ <span>源管理</span></button>
+    <button type="button" class="btn primary" id="importBtn">＋ <span>导入频道</span></button>
+  </div>
 </header>
 <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 <div class="workspace">
- <aside class="sidebar" aria-label="频道导航">
-  <div class="sidebar-heading"><span class="eyebrow">LIBRARY</span><span class="count-pill" id="libraryCount">0</span></div>
-  <label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索频道 / 分组..." autocomplete="off" aria-label="搜索频道"></label>
-  <div class="nav-stack" id="filters">
-   <button class="nav-item active" data-filter="all"><span>▦</span> 全部频道 <b id="allCount"></b></button>
-   <button class="nav-item" data-filter="favorites"><span>★</span> 我的收藏 <b id="favCount"></b></button>
-   <button class="nav-item" data-filter="recent"><span>◷</span> 最近播放 <b id="recentCount"></b></button>
-  </div>
-  <div class="divider-label"><span>PLAYLIST SOURCES</span></div>
-  <select id="sourceFilter" class="source-select" aria-label="选择来源"><option value="all">全部来源</option></select>
-  <div class="divider-label"><span>CHANNEL GROUPS</span><button class="text-button" id="clearGroup" type="button">全部</button></div>
-  <div class="groups" id="groups"></div>
-  <div class="divider-label list-heading"><span>CHANNELS</span><span id="visibleCount">0</span></div>
-  <div class="channel-list" id="channelList"></div>
-  <button type="button" class="load-more" id="loadMore" hidden>显示更多频道 ↓</button>
-  <div class="sidebar-footer"><span class="privacy-dot"></span>清单和收藏仅存当前浏览器</div>
- </aside>
- <main class="main">
-  <div class="content-head"><div><div class="eyebrow violet">NOW WATCHING</div><h1 id="pageTitle">你的私人直播空间</h1><p id="pageSubtitle">选择左侧公共频道，或导入自己的 M3U 清单。</p></div><div class="head-tag">PERSONAL · PRIVATE</div></div>
-  <section class="player-card" aria-label="视频播放器">
-   <div id="videoBox" class="video-box">
-    <video id="video" playsinline controls preload="none" referrerpolicy="no-referrer" aria-label="IPTV 视频播放器"></video>
-    <div id="videoEmpty" class="video-empty"><div class="empty-orb">▶</div><strong>准备好，随时开播</strong><p>选择左侧公共频道开始播放<br>也可导入自己的私人 M3U</p><button type="button" id="emptyImport" class="btn primary">＋ 导入播放列表</button></div>
-    <span class="corner-badge"><span class="live-pulse"></span> LIVE PLAYER</span>
-   </div>
-   <div class="playback-meta">
-    <div class="playing-name"><div class="onair-dot"></div><div><h2 id="currentName">尚未选择频道</h2><p id="currentGroup">添加你有权观看的直播源</p></div></div>
-    <div class="controls">
-     <button class="icon-btn" id="prevBtn" title="上一个频道" aria-label="上一个频道">⏮</button>
-     <button class="icon-btn big" id="playBtn" title="播放或暂停" aria-label="播放或暂停">▶</button>
-     <button class="icon-btn" id="nextBtn" title="下一个频道" aria-label="下一个频道">⏭</button>
-     <span class="control-divider"></span>
-     <button class="icon-btn" id="favBtn" title="收藏频道" aria-label="收藏频道">☆</button>
-     <button class="icon-btn" id="retryBtn" title="重新连接" aria-label="重新连接">↻</button>
-     <button class="icon-btn" id="pipBtn" title="画中画" aria-label="画中画">▣</button>
-     <button class="icon-btn" id="fullBtn" title="全屏" aria-label="全屏">⛶</button>
+  <aside class="sidebar" aria-label="频道导航">
+    <div class="side-search">
+      <label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索频道..." autocomplete="off" aria-label="搜索频道"></label>
+      <div class="mini-filters" id="filters">
+        <button type="button" class="nav-item active" data-filter="all">全部 <b id="allCount">0</b></button>
+        <button type="button" class="nav-item" data-filter="favorites">☆ 收藏 <b id="favCount">0</b></button>
+        <button type="button" class="nav-item" data-filter="recent">◷ 最近 <b id="recentCount">0</b></button>
+      </div>
+      <div class="filters-extra">
+        <select id="sourceFilter" class="source-select" aria-label="选择来源"><option value="all">全部来源</option></select>
+        <button class="text-button" id="clearGroup" type="button">全部分组</button>
+      </div>
+      <div class="groups" id="groups"></div>
     </div>
-   </div>
-   <div class="player-detail"><div class="stream-status"><span class="state-dot" id="statusDot"></span><span id="statusText" role="status">等待选择频道</span></div><label class="line-field">线路 <select id="lineSelect" aria-label="选择播放线路" disabled><option>无可用线路</option></select></label></div>
-  </section>
-  <section class="lower-grid">
-   <div class="info-panel"><div class="info-icon">✦</div><div><h3>自己的频道，自己的影院</h3><p>支持本地文件、M3U 文本、HTTPS 订阅地址和自定义直播链接。无需视频服务器，播放由浏览器直接连接源站。</p><button class="inline-action" type="button" id="infoImport">探索 GitHub 公开频道 →</button></div></div>
-   <div class="stats-panel"><div><span>我的频道</span><strong id="statChannels">0</strong></div><div><span>已收藏</span><strong id="statFav">0</strong></div><div><span>播放源</span><strong id="statSources">0</strong></div></div>
-  </section>
-  <footer class="app-footer">MEDIAHUB LIVE <span>·</span> 无服务器存储 <span>·</span> 公共频道由第三方源站提供 <span>·</span> 仅用于有权访问的直播源</footer>
- </main>
+    <div class="side-count"><span>频道列表</span><span><span id="visibleCount">0</span> 个</span><span hidden id="libraryCount">0</span></div>
+    <div class="channel-list" id="channelList"></div>
+    <button type="button" class="load-more" id="loadMore" hidden>显示更多频道 ↓</button>
+    <div class="sidebar-footer">
+      <span class="privacy-dot"></span> 当前浏览器 · 私人清单本地保存
+      <button type="button" class="side-github" id="sideGithubBtn">＋ 频道库</button>
+    </div>
+  </aside>
+  <main class="main" aria-label="直播播放器与频道信息">
+    <section class="player-card" aria-label="视频播放器">
+      <div id="videoBox" class="video-box">
+        <video id="video" playsinline controls preload="none" referrerpolicy="no-referrer" aria-label="IPTV 视频播放器"></video>
+        <div id="videoEmpty" class="video-empty">
+          <div class="empty-orb">▶</div>
+          <strong>MediaHub Live</strong>
+          <p>在左侧选择频道，立即开始观看<br>也可以导入自己的 M3U 播放列表</p>
+          <button type="button" id="emptyImport" class="btn primary">＋ 导入播放列表</button>
+        </div>
+      </div>
+    </section>
+    <section class="now-card" aria-label="当前频道及直播状态">
+      <div class="now-top">
+        <div class="channel-badge" id="playingLogo" aria-hidden="true">▶</div>
+        <div class="now-title">
+          <div class="now-title-line">
+            <h1 id="currentName">选择一个频道开始播放</h1>
+            <span class="format-pill" id="playbackKind">HLS</span>
+          </div>
+          <p id="currentGroup">支持 HLS、MPEG-TS 和个人播放列表</p>
+        </div>
+        <button class="fav-action" id="favBtn" title="收藏频道" aria-label="收藏频道" disabled>☆ 收藏</button>
+        <div class="channel-nav">
+          <button class="icon-btn" id="prevBtn" title="上一频道" aria-label="上一频道" disabled>⏮</button>
+          <button class="icon-btn" id="playBtn" title="播放或暂停" aria-label="播放或暂停" disabled>▶</button>
+          <button class="icon-btn" id="nextBtn" title="下一频道" aria-label="下一频道" disabled>⏭</button>
+        </div>
+        <span class="channel-source-desc" id="pageSubtitle">浏览器直接连接直播源</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span>编码</span><strong id="codecText">—</strong></div>
+        <div class="metric"><span>分辨率</span><strong id="resolutionText">—</strong></div>
+        <div class="metric"><span>缓冲</span><strong id="bufferText">0.0s</strong></div>
+        <div class="metric"><span>标称码率</span><strong id="bitrateText">—</strong></div>
+        <div class="metric status-metric"><span>状态</span><strong><span class="state-dot" id="statusDot"></span><span id="statusText" role="status">等待播放</span></strong></div>
+      </div>
+      <div class="now-bottom">
+        <div class="line-control"><label class="line-field">播放线路 <select id="lineSelect" aria-label="选择播放线路" disabled><option>无可用线路</option></select></label></div>
+        <button class="btn subtle thin" id="retryBtn" disabled title="重新连接直播">↻ 重新连接</button>
+        <button class="btn subtle thin" id="pipBtn" disabled title="画中画">▣ 画中画</button>
+        <button class="btn subtle thin" id="fullBtn" disabled title="全屏播放">⛶ 全屏</button>
+        <span class="bottom-hint">频道节目表、P2P 和弹幕尚未接入</span>
+      </div>
+    </section>
+    <div class="screen-footer">
+      <span>MEDIAHUB LIVE · 仅使用有权访问的直播源</span>
+      <button type="button" id="infoImport">探索 GitHub 公开频道 →</button>
+      <span class="sr-only">频道数 <span id="statChannels">0</span>，收藏数 <span id="statFav">0</span>，来源数 <span id="statSources">0</span></span>
+      <span class="sr-only" id="pageTitle">直播播放</span>
+    </div>
+  </main>
 </div>
-<div class="modal-overlay" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="频道管理"><button class="modal-close" id="modalClose" title="关闭" aria-label="关闭">×</button><div id="modalBody"></div></div></div>
+<div class="modal-overlay" id="modal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="频道管理">
+    <button class="modal-close" id="modalClose" title="关闭" aria-label="关闭">×</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
 </div>
 <script type="module" src="/src/main.js"></script>
-</body></html>
+</body>
+</html>
