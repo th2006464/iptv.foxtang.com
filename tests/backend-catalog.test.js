@@ -99,7 +99,7 @@ test('strict catalog contracts and Pages Function integration are present', asyn
   const main=await readFile(new URL('../src/main.js',import.meta.url),'utf8');
   const endpoint=await readFile(new URL('../functions/api/channels.js',import.meta.url),'utf8');
   const html=await readFile(new URL('../index.html',import.meta.url),'utf8');
-  assert.match(main,/fetch\('\/api\/channels'/);
+  assert.match(main,/fetch\('\/api\/channels\?rev=/);
   assert.match(main,/void syncPublicBackend\(\)/);
   assert.match(endpoint,/export async function onRequestGet/);
   assert.match(endpoint,/Cache-Control/);
