@@ -20,6 +20,9 @@ jobs:
         run: npm ci
       - name: Test and build
         run: npm run check
+      - name: Probe selected public HLS manifests (advisory, not user playback)
+        continue-on-error: true
+        run: node scripts/probe-public-streams.mjs
       - name: Check diff whitespace
         run: |
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then

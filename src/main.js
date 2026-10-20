@@ -5,6 +5,7 @@ import { GITHUB_PLAYLISTS } from './github-sources.js';
 import { PUBLIC_SOURCE_ID, getPublicChannels } from './public-catalog.js';
 import { HD_REFERENCE_SOURCE_ID, installReferenceCatalog, addReferenceStream, matchOwnPlaylist, findReferenceId } from './hd-reference-catalog.js';
 import { mergeBackendCatalog } from './backend-catalog.js';
+import { nextFallbackIndex, MAX_AUTOMATIC_BACKUPS } from './line-failover.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
@@ -24,6 +25,39 @@ const video = $('#video');
 video.volume = prefs.volume;
 video.muted = prefs.muted;
 const controller = new PlayerController(video, updatePlayback);
+const failover = { channelId: null, attempted: new Set(), retries: 0, generation: 0, pending: false };
+function resetFailover(channelId, selectedIndex = 0) {
+  failover.channelId = channelId;
+  failover.generation++;
+  failover.attempted = new Set([selectedIndex]);
+  failover.retries = 0;
+  failover.pending = false;
+}
+function onFatalPlaybackError() {
+  const channel = state.channels.find(c => c.id === ui.selected);
+  if (!channel || channel.id !== failover.channelId || failover.pending) return;
+  const candidates = availableStreams(channel);
+  const select = $('#lineSelect');
+  const current = Number(select.value || 0);
+  const next = nextFallbackIndex(candidates, current, failover.attempted, failover.retries);
+  if (next < 0) return;
+  failover.retries++;
+  failover.attempted.add(current);
+  failover.attempted.add(next);
+  failover.pending = true;
+  const generation = failover.generation;
+  setTimeout(() => {
+    if (failover.generation !== generation || channel.id !== ui.selected) return;
+    failover.pending = false;
+    const fresh = availableStreams(state.channels.find(c => c.id === channel.id));
+    if (!fresh[next]) return;
+    select.value = String(next);
+    $('#statusText').textContent = '当前线路失败，尝试备用线 ' + failover.retries
+      + '/' + MAX_AUTOMATIC_BACKUPS;
+    $('#statusDot').className = 'state-dot loading';
+    controller.load(fresh[next]);
+  }, 450);
+}
 function notify(message, kind = 'info') {
   const n = $('#notice'); n.textContent = message; n.dataset.kind = kind; n.hidden = false;
   clearTimeout(noticeTimeout); noticeTimeout = setTimeout(() => { n.hidden = true; }, 6000);
@@ -32,6 +66,7 @@ function updatePlayback(status, message) {
   $('#statusText').textContent = message;
   $('#statusDot').className = 'state-dot ' + status;
   $('#playBtn').textContent = status === 'playing' ? 'Ⅱ' : '▶';
+  if (status === 'error') onFatalPlaybackError();
 }
 function savePrefs() {
   try { localStorage.setItem(settingsKey, JSON.stringify(prefs)); }
@@ -201,7 +236,7 @@ async function selectChannel(id, autoplay) {
   const channel = state.channels.find((c) => c.id === id);
   if (!channel) return;
   if (ui.selected !== id) {
-    ui.selected = id; controller.reset(); $('#lineSelect').value = '0';
+    ui.selected = id; resetFailover(id); controller.reset(); $('#lineSelect').value = '0';
     updatePlayback('idle', availableStreams(channel).length ? '已选择频道，点击播放' : '暂无有效播放线路');
     refreshMetrics();
   }
@@ -214,7 +249,10 @@ function playSelected() {
   if (!channel) return;
   const active = availableStreams(channel);
   const stream = active[Number($('#lineSelect').value) || 0] || active[0];
-  if (stream) controller.load(stream);
+  if (stream) {
+    resetFailover(channel.id, Number($('#lineSelect').value) || 0);
+    controller.load(stream);
+  }
   else { updatePlayback('idle', '暂无有效播放线路'); notify('该台缺少有效线路，或已过签名有效期。请重新导入授权清单。', 'warn'); }
 }
 function adjacentChannel(step) {
