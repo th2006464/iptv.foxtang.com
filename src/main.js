@@ -273,7 +273,7 @@ async function syncPublicBackend({ showNotice = false } = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 14000);
   try {
-    const response = await fetch('/api/channels?rev=20261020-freehls13', {
+    const response = await fetch('/api/channels?rev=20261020-freemore14', {
       credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store', signal: controller.signal
     });
     if (!response.ok) throw new Error('频道接口 HTTP ' + response.status);

@@ -87,6 +87,14 @@ GitHub Actions 对上述 5 条来源执行一次**非阻塞**的 HLS 主清单 G
 
 v13 将边缘缓存键按 Pages Commit SHA（不可用则使用静态 v13 修订号）隔离，并让浏览器使用带版本号的同源 URL、`cache:no-store` 获取 JSON。后台缓存仍可用，但新版本不会命中上一部署的旧数据。UI/184 台台号/私人 M3U/公开白名单保持不变。
 
+## 2026-10-20 v14：扩展免费直播台与缓存版本
+
+在保持原有 HD.Rip 参考 **184 台频道、列表顺序、UI** 不变的前提下，从公开 FreewatchMY/广播机构 RTMKlik 清单增加 **TV2 Malaysia** 的 RTM CloudFront HLS，从多个公开直播目录补充 **Astro AWANI** 的新闻直播 CDN 候选。两者都已在原 184 台目录中，且没有增加收费流、短期 Token 或私人签名。两条新线路须经 CI HTTP/清单/CORS 探测后才能在发布说明中称为候选可请求；是否能正常解码仍取决于浏览器/地域。
+
+在根目录 Pages Functions 中把 Cache API 的静态回退版本从 v13 提升到 v14，并提升前端 API URL 与 JS/CSS 版本，避免生产 Cloudflare 缓存继续返回上一个部署的 19 台元数据。私人 M3U、收藏和浏览历史仍只在当前浏览器 IndexedDB 中。
+
+**“频道绑定”与“频道能播放”是两个不同的状态**：付费/DRM/签名过期频道仍无法由一个无登录的公共 API 合法自动提供。入口会保留可通过原发行平台/授权订阅观看的说明。
+
 ## Cloudflare Pages 后台公开线路接口（v11）
 
 网站继续保持公开，频道目录和 UI 不变。Git 集成的 Cloudflare Pages Functions 自动生成
