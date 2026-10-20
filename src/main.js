@@ -3,6 +3,7 @@ import { EMPTY_STATE, loadState, saveState, appendSource, removeSource, toggleFa
 import { PlayerController } from './player.js';
 import { PUBLIC_SOURCE, PUBLIC_SOURCE_ID, PUBLIC_BOOTSTRAP_FLAG, getPublicChannels } from './public-catalog.js';
 import { GITHUB_PLAYLISTS } from './github-sources.js';
+import { AUTO_CATALOG, loadAutoCatalog } from './auto-catalog.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const settingsKey = 'fox-iptv-settings-v1';
@@ -102,7 +103,7 @@ function renderList() {
     const main = node('button', 'channel-main'); main.type = 'button'; main.title = channel.name;
     const number = node('span', 'channel-number', String(index + 1).padStart(2, '0'));
     const thumb = node('span', 'channel-thumb', channel.name.slice(0, 2).toUpperCase());
-    if (prefs.logos && channel.logo) {
+    if (channel.logo) {
       const img = document.createElement('img'); img.src = channel.logo; img.alt = '';
       img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; img.onerror = () => img.remove();
       thumb.append(img);
@@ -140,7 +141,15 @@ function renderCurrent() {
   $('#pageSubtitle').textContent = channel ? '来源：' + (state.sources.find(s => s.id === channel.sourceId)?.name || '本地清单') : '从左侧选择频道开始播放';
   $('#currentName').textContent = channel ? channel.name : '选择一个频道开始播放';
   $('#currentGroup').textContent = channel ? channel.group : '支持 HLS、MPEG-TS 和个人播放列表';
-  $('#playingLogo').textContent = channel ? channel.name.slice(0, 2).toUpperCase() : '▶';
+  const logoBox = $('#playingLogo');
+  logoBox.replaceChildren();
+  logoBox.textContent = channel ? channel.name.slice(0, 2).toUpperCase() : '▶';
+  if (channel?.logo) {
+    const image = document.createElement('img');
+    image.src = channel.logo; image.alt = ''; image.referrerPolicy = 'no-referrer';
+    image.onerror = () => image.remove();
+    logoBox.replaceChildren(image);
+  }
   $('#videoEmpty').hidden = Boolean(channel);
   $('#favBtn').textContent = channel && state.favorites.includes(channel.id) ? '★ 已收藏' : '☆ 收藏';
   $('#favBtn').disabled = !channel;
@@ -492,6 +501,23 @@ function setupEvents() {
   window.addEventListener('offline', () => notify('当前设备离线，直播可能中断', 'warn'));
   window.addEventListener('beforeunload', () => controller.destroy());
 }
+async function refreshAutoCatalog() {
+  const installed = state.sources.find(s => s.id === AUTO_CATALOG.id);
+  const last = Number(installed?.updatedAt || 0);
+  if (installed && Date.now() - last < 24 * 60 * 60 * 1000) return;
+  try {
+    const result = await loadAutoCatalog();
+    if (!result.channels.length) throw new Error('公共清单为空');
+    const previous = state.sources.find(s => s.id === AUTO_CATALOG.id);
+    const source = { id: AUTO_CATALOG.id, name: AUTO_CATALOG.name, type: 'url', sourceUrl: AUTO_CATALOG.url,
+      enabled: previous?.enabled ?? true, createdAt: previous?.createdAt || Date.now(), updatedAt: Date.now() };
+    await commit(appendSource(state, source, result.channels, Boolean(previous)));
+    notify('公共频道库已更新：' + result.channels.length + ' 个频道，可在左侧选择观看', 'success');
+  } catch (error) {
+    console.warn('Public catalog unavailable; local channels remain available:', error?.message || error);
+    if (!state.channels.length) notify('公共频道加载失败。可重试刷新页面，或导入自己的 M3U 清单。', 'error');
+  }
+}
 async function init() {
   setupEvents(); theme();
   try { state = await loadState(); }
@@ -507,6 +533,8 @@ async function init() {
     try { localStorage.setItem(PUBLIC_BOOTSTRAP_FLAG, '1'); } catch { /* Private mode: no persistent flag. */ }
     notify('已添加 18 个公开直播频道；受地区和浏览器兼容性限制，部分频道可能无法播放', 'success');
   }
+  // Nonblocking catalog refresh: never discard existing saved or private playlists.
+  void refreshAutoCatalog();
   const sharedId = new URL(location.href).searchParams.get('ch');
   if (sharedId && state.channels.some((c) => c.id === sharedId)) {
     ui.selected = sharedId; updatePlayback('idle', '已载入分享频道，点击播放');
