@@ -1,0 +1,29 @@
+name: Verify Fox IPTV
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install reproducibly
+        run: npm ci
+      - name: Test and build
+        run: npm run check
+      - name: Check diff whitespace
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git diff --check origin/main...HEAD
+          else
+            git diff --check HEAD^ HEAD
+          fi

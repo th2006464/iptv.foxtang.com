@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1020"><meta name="referrer" content="no-referrer">
+<meta name="description" content="Fox IPTV — 私人 M3U/IPTV 网络电视播放器。清单和收藏保存在当前浏览器。">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/src/styles.css">
+<title>Fox IPTV · 私人直播影院</title>
+</head>
+<body>
+<div id="app">
+<header class="topbar">
+ <div class="brand"><div class="brand-mark"><span>▶</span></div><div><strong>Fox IPTV</strong><small>YOUR PERSONAL CINEMA</small></div></div>
+ <div class="topbar-middle"><span class="live-pulse"></span><span>私人直播影院</span><span class="topbar-separator">/</span><span id="topCount">0 个频道</span></div>
+ <div class="top-actions"><button type="button" class="btn subtle" id="themeBtn">☾ 深色</button><button type="button" class="btn subtle" id="manageBtn">⚙ <span>源管理</span></button><button type="button" class="btn primary" id="importBtn">＋ 导入频道</button></div>
+</header>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+<div class="workspace">
+ <aside class="sidebar" aria-label="频道导航">
+  <div class="sidebar-heading"><span class="eyebrow">LIBRARY</span><span class="count-pill" id="libraryCount">0</span></div>
+  <label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索频道 / 分组..." autocomplete="off" aria-label="搜索频道"></label>
+  <div class="nav-stack" id="filters">
+   <button class="nav-item active" data-filter="all"><span>▦</span> 全部频道 <b id="allCount"></b></button>
+   <button class="nav-item" data-filter="favorites"><span>★</span> 我的收藏 <b id="favCount"></b></button>
+   <button class="nav-item" data-filter="recent"><span>◷</span> 最近播放 <b id="recentCount"></b></button>
+  </div>
+  <div class="divider-label"><span>PLAYLIST SOURCES</span></div>
+  <select id="sourceFilter" class="source-select" aria-label="选择来源"><option value="all">全部来源</option></select>
+  <div class="divider-label"><span>CHANNEL GROUPS</span><button class="text-button" id="clearGroup" type="button">全部</button></div>
+  <div class="groups" id="groups"></div>
+  <div class="divider-label list-heading"><span>CHANNELS</span><span id="visibleCount">0</span></div>
+  <div class="channel-list" id="channelList"></div>
+  <button type="button" class="load-more" id="loadMore" hidden>显示更多频道 ↓</button>
+  <div class="sidebar-footer"><span class="privacy-dot"></span>清单和收藏仅存当前浏览器</div>
+ </aside>
+ <main class="main">
+  <div class="content-head"><div><div class="eyebrow violet">NOW WATCHING</div><h1 id="pageTitle">你的私人直播空间</h1><p id="pageSubtitle">导入 M3U 清单，开始享受大屏沉浸式观看体验。</p></div><div class="head-tag">PERSONAL · PRIVATE</div></div>
+  <section class="player-card" aria-label="视频播放器">
+   <div id="videoBox" class="video-box">
+    <video id="video" playsinline controls preload="none" referrerpolicy="no-referrer" aria-label="IPTV 视频播放器"></video>
+    <div id="videoEmpty" class="video-empty"><div class="empty-orb">▶</div><strong>准备好，随时开播</strong><p>选择左侧频道开始播放<br>或导入你的私人 M3U 播放列表</p><button type="button" id="emptyImport" class="btn primary">＋ 导入播放列表</button></div>
+    <span class="corner-badge"><span class="live-pulse"></span> LIVE PLAYER</span>
+   </div>
+   <div class="playback-meta">
+    <div class="playing-name"><div class="onair-dot"></div><div><h2 id="currentName">尚未选择频道</h2><p id="currentGroup">添加你有权观看的直播源</p></div></div>
+    <div class="controls">
+     <button class="icon-btn" id="prevBtn" title="上一个频道" aria-label="上一个频道">⏮</button>
+     <button class="icon-btn big" id="playBtn" title="播放或暂停" aria-label="播放或暂停">▶</button>
+     <button class="icon-btn" id="nextBtn" title="下一个频道" aria-label="下一个频道">⏭</button>
+     <span class="control-divider"></span>
+     <button class="icon-btn" id="favBtn" title="收藏频道" aria-label="收藏频道">☆</button>
+     <button class="icon-btn" id="retryBtn" title="重新连接" aria-label="重新连接">↻</button>
+     <button class="icon-btn" id="pipBtn" title="画中画" aria-label="画中画">▣</button>
+     <button class="icon-btn" id="fullBtn" title="全屏" aria-label="全屏">⛶</button>
+    </div>
+   </div>
+   <div class="player-detail"><div class="stream-status"><span class="state-dot" id="statusDot"></span><span id="statusText" role="status">等待选择频道</span></div><label class="line-field">线路 <select id="lineSelect" aria-label="选择播放线路" disabled><option>无可用线路</option></select></label></div>
+  </section>
+  <section class="lower-grid">
+   <div class="info-panel"><div class="info-icon">✦</div><div><h3>自己的频道，自己的影院</h3><p>支持本地文件、M3U 文本、HTTPS 订阅地址和自定义直播链接。无需视频服务器，播放由浏览器直接连接源站。</p><button class="inline-action" type="button" id="infoImport">管理我的播放列表 →</button></div></div>
+   <div class="stats-panel"><div><span>我的频道</span><strong id="statChannels">0</strong></div><div><span>已收藏</span><strong id="statFav">0</strong></div><div><span>播放源</span><strong id="statSources">0</strong></div></div>
+  </section>
+  <footer class="app-footer">FOX IPTV <span>·</span> 无服务器存储 <span>·</span> 不提供第三方频道 <span>·</span> 仅用于有权访问的直播源</footer>
+ </main>
+</div>
+<div class="modal-overlay" id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="频道管理"><button class="modal-close" id="modalClose" title="关闭" aria-label="关闭">×</button><div id="modalBody"></div></div></div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body></html>
