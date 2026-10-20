@@ -81,6 +81,12 @@ GitHub Actions 对上述 5 条来源执行一次**非阻塞**的 HLS 主清单 G
 
 公开网站不发布用户此前抓到的 184 条短期签名流。只有附带允许公开分发依据、且无凭据的流才会加入公共线路池。
 
+## 2026-10-20 v13：修复跨部署缓存残留
+
+实测上一版部署完成后，生产 API 仍返回旧版生成时间（约 05:58 UTC）、可提供候选源台数为 15，而新代码实际应为 19 台。根因是 Cloudflare Pages Functions 使用固定 Cache API 键 `/api/channels`，跨代码部署复用了长达一小时的旧 JSON。
+
+v13 将边缘缓存键按 Pages Commit SHA（不可用则使用静态 v13 修订号）隔离，并让浏览器使用带版本号的同源 URL、`cache:no-store` 获取 JSON。后台缓存仍可用，但新版本不会命中上一部署的旧数据。UI/184 台台号/私人 M3U/公开白名单保持不变。
+
 ## Cloudflare Pages 后台公开线路接口（v11）
 
 网站继续保持公开，频道目录和 UI 不变。Git 集成的 Cloudflare Pages Functions 自动生成
