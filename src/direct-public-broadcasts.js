@@ -9,6 +9,19 @@ export const DIRECT_PUBLIC_BROADCASTS = Object.freeze({
     { url: 'https://english-livebkali.cgtn.com/live/encgtn.m3u8', kind: 'hls',
       label: 'CGTN 官方英文直播 · 1080p 源标（未实测）' }
   ],
+  // RTM TV2 Malaysia, free RTM broadcast on the same authorized RTM CDN.
+  // GitHub FreewatchMY / official rtmklik.rtm.gov.my TV2 live page.
+  226: [
+    { url: 'https://d25tgymtnqzu8s.cloudfront.net/smil:tv2/playlist.m3u8?id=2',
+      kind: 'hls', label: 'RTM TV2 广播 CDN · 可能限制地区' }
+  ],
+  // Astro AWANI is a free live news broadcaster. This CloudFront endpoint is
+  // listed as its live stream in multiple IPTV indices. Availability is probed
+  // before treating it as a verified fallback.
+  7: [
+    { url: 'https://d2idp3hzkhjpih.cloudfront.net/out/v1/4b85d9c2bf97413eb0c9fd875599b837/index.m3u8',
+      kind: 'hls', label: 'Astro AWANI 新闻直播 · CDN 候选' }
+  ],
   // RTM TV1 Malaysia, openly published RTM CDN (geo restrictions may apply).
   251: [
     { url: 'https://d25tgymtnqzu8s.cloudfront.net/smil:tv1/playlist.m3u8?id=1',

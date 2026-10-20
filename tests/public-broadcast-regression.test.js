@@ -10,7 +10,7 @@ test('small official broadcaster HLS shortlist adds playable candidates to exist
   const channels = getReferenceChannels();
   assert.equal(channels.length, 184);
   assert.equal(channels.filter(c => c.sourceId === HD_REFERENCE_SOURCE_ID).length, 184);
-  const ids = [251, 351, 380, 392, 408];
+  const ids = [7, 226, 251, 351, 380, 392, 408];
   for (const id of ids) {
     const ref = channels.find(c => c.referenceId === id);
     assert.ok(ref, 'missing HD reference ' + id);

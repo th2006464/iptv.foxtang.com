@@ -46,7 +46,7 @@ export async function onRequestGet(context) {
   // individual deployments. Reusing /api/channels returned stale 15-channel
   // data after v12 had added 4 publicly broadcast stations.
   const revision = /^[a-f\d]{8,64}$/i.test(context.env?.CF_PAGES_COMMIT_SHA || '')
-    ? context.env.CF_PAGES_COMMIT_SHA : '20261020-freehls13';
+    ? context.env.CF_PAGES_COMMIT_SHA : '20261020-freemore14';
   const key = new Request(new URL('/api/channels?build=' + revision, request.url).href);
   if (cache) {
     try {
