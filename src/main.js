@@ -16,7 +16,7 @@ try {
   if (typeof saved.muted === 'boolean') prefs.muted = saved.muted;
 } catch { /* Bad preferences must not break startup. */ }
 let state = EMPTY_STATE();
-let ui = { filter: 'all', group: 'all', source: 'all', search: '', selected: null, visible: 250, pending: null, importMode: 'file' };
+let ui = { search: '', selected: null, visible: 250, pending: null, importMode: 'file' };
 let canPersist = true;
 let noticeTimeout;
 const video = $('#video');
@@ -53,47 +53,16 @@ function activeChannels() {
   return state.channels.filter((c) => enabled.has(c.sourceId));
 }
 function visibleChannels() {
-  let channels = activeChannels();
-  if (ui.filter === 'favorites') channels = channels.filter((c) => state.favorites.includes(c.id));
-  if (ui.filter === 'recent') {
-    const order = new Map(state.recent.map((id, i) => [id, i]));
-    channels = channels.filter((c) => order.has(c.id)).sort((a, b) => order.get(a.id) - order.get(b.id));
-  }
-  if (ui.source !== 'all') channels = channels.filter((c) => c.sourceId === ui.source);
-  if (ui.group !== 'all') channels = channels.filter((c) => c.group === ui.group);
-  const search = ui.search.toLocaleLowerCase();
-  if (search) channels = channels.filter((c) => (c.name + ' ' + c.group + ' ' + (c.referenceId || '')).toLocaleLowerCase().includes(search));
-  return channels;
+  const term = ui.search.toLocaleLowerCase();
+  const channels = activeChannels();
+  if (!term) return channels;
+  return channels.filter(c => (c.name + ' ' + (c.referenceId || '') + ' ' + (c.tvgId || '')).toLocaleLowerCase().includes(term));
 }
 function node(type, className, label) {
   const el = document.createElement(type);
   if (className) el.className = className;
   if (label !== undefined) el.textContent = label;
   return el;
-}
-function renderSources() {
-  const select = $('#sourceFilter'), current = ui.source;
-  select.replaceChildren(new Option('全部来源', 'all'));
-  for (const source of state.sources) select.add(new Option((source.enabled ? '' : '⏸ ') + source.name, source.id));
-  if (current !== 'all' && !state.sources.some((s) => s.id === current)) ui.source = 'all';
-  select.value = ui.source;
-}
-function renderGroups() {
-  const counts = new Map();
-  for (const c of activeChannels()) {
-    if (ui.source !== 'all' && c.sourceId !== ui.source) continue;
-    counts.set(c.group, (counts.get(c.group) || 0) + 1);
-  }
-  const target = $('#groups'); target.replaceChildren();
-  for (const [name, count] of [...counts].sort((a, b) => b[1] - a[1]).slice(0, 32)) {
-    const btn = node('button', 'group-pill' + (ui.group === name ? ' active' : ''));
-    btn.type = 'button'; btn.title = name;
-    btn.append(node('span', 'truncate', name), node('small', '', String(count)));
-    btn.addEventListener('click', () => { ui.group = ui.group === name ? 'all' : name; ui.visible = 250; render(); });
-    target.append(btn);
-  }
-  if (!counts.has(ui.group)) ui.group = 'all';
-  if (!counts.size) target.append(node('div', 'sidebar-hint', '导入后会自动显示频道分组'));
 }
 function renderList() {
   const filtered = visibleChannels(), list = $('#channelList');
@@ -116,11 +85,7 @@ function renderList() {
     info.append(node('small', 'channel-group', channel.group));
     main.append(number, thumb, info);
     main.addEventListener('click', () => selectChannel(channel.id, true));
-    const starred = state.favorites.includes(channel.id);
-    const star = node('button', 'channel-star' + (starred ? ' is-starred' : ''), starred ? '★' : '☆');
-    star.type = 'button'; star.title = '切换收藏'; star.setAttribute('aria-label', '收藏 ' + channel.name);
-    star.addEventListener('click', () => commit(toggleFavorite(state, channel.id)));
-    row.append(main, star); list.append(row);
+    row.append(main); list.append(row);
   }
   if (!filtered.length) {
     const empty = node('div', 'list-empty');
@@ -134,14 +99,14 @@ function renderList() {
     list.append(empty);
   }
   $('#loadMore').hidden = filtered.length <= ui.visible;
-  $('#visibleCount').textContent = filtered.length.toLocaleString();
+
 }
 function renderCurrent() {
   const channel = state.channels.find((c) => c.id === ui.selected);
   $('#pageTitle').textContent = channel ? channel.name : '网络电视直播';
   $('#pageSubtitle').textContent = channel ? '来源：' + (state.sources.find(s => s.id === channel.sourceId)?.name || '本地清单') : '从左侧选择频道开始播放';
   $('#currentName').textContent = channel ? channel.name : '选择一个频道开始播放';
-  $('#currentGroup').textContent = channel ? channel.group : '支持 HLS、MPEG-TS 和个人播放列表';
+  $('#currentGroup').textContent = channel ? (channel.streams?.length ? channel.streams.length + ' 条播放线路可选择' : '尚未配置播放线路 · 可绑定自己的订阅') : '选择左侧频道开始播放';
   const logoBox = $('#playingLogo');
   logoBox.replaceChildren();
   logoBox.textContent = channel ? channel.name.slice(0, 2).toUpperCase() : '▶';
@@ -210,15 +175,11 @@ function refreshMetrics() {
 function render() {
   const enabled = activeChannels();
   $('#topCount').textContent = enabled.length.toLocaleString() + ' 个频道';
-  $('#libraryCount').textContent = String(enabled.length);
-  $('#allCount').textContent = String(enabled.length);
-  $('#favCount').textContent = String(state.favorites.length);
-  $('#recentCount').textContent = String(state.recent.length);
-  $('#statChannels').textContent = enabled.length.toLocaleString();
+  $('#statChannels').textContent = String(enabled.length);
   $('#statFav').textContent = String(state.favorites.length);
   $('#statSources').textContent = String(state.sources.length);
-  for (const btn of $('#filters').querySelectorAll('[data-filter]')) btn.classList.toggle('active', btn.dataset.filter === ui.filter);
-  renderSources(); renderGroups(); renderList(); renderCurrent();
+  renderList();
+  renderCurrent();
 }
 async function selectChannel(id, autoplay) {
   const channel = state.channels.find((c) => c.id === id);
@@ -496,7 +457,7 @@ function openRestore() {
       if (file.size > MAX_IMPORT_BYTES) throw new Error('备份不能超过 20 MB');
       const restored = installReferenceCatalog(sanitizeBackup(JSON.parse(await file.text())));
       if (!confirm('确认替换本设备现有的 ' + state.channels.length + ' 个频道？')) return;
-      controller.reset(); ui.selected = null; ui.group = 'all'; ui.source = 'all'; ui.filter = 'all';
+      controller.reset(); ui.selected = null; ui.search = ''; $('#search').value = '';
       await commit(restored); closeModal(); notify('备份恢复成功，已导入 ' + restored.channels.length + ' 个频道', 'success');
     } catch (error) { notify(error instanceof Error ? error.message : '备份恢复失败', 'error'); }
   });
@@ -511,7 +472,6 @@ function setupEvents() {
   $('#bindLineBtn').addEventListener('click', openBindLine);
   $('#infoImport').addEventListener('click', openGitHubLibrary);
   $('#manageBtn').addEventListener('click', openManage);
-  $('#sideGithubBtn').addEventListener('click', openGitHubLibrary);
   $('#shareBtn').addEventListener('click', async () => {
     const address = new URL(window.location.href);
     address.search = '';
@@ -525,13 +485,7 @@ function setupEvents() {
   $('#themeBtn').addEventListener('click', () => { prefs.theme = prefs.theme === 'dark' ? 'light' : 'dark'; theme(); savePrefs(); });
   $('#modalClose').addEventListener('click', closeModal);
   $('#modal').addEventListener('click', (e) => { if (e.target === $('#modal')) closeModal(); });
-  $('#search').addEventListener('input', (e) => { ui.search = e.target.value.trim(); ui.visible = 250; renderList(); });
-  $('#sourceFilter').addEventListener('change', (e) => { ui.source = e.target.value; ui.group = 'all'; ui.visible = 250; render(); });
-  $('#filters').addEventListener('click', (e) => {
-    const button = e.target.closest('[data-filter]');
-    if (button) { ui.filter = button.dataset.filter; ui.visible = 250; render(); }
-  });
-  $('#clearGroup').addEventListener('click', () => { ui.group = 'all'; render(); });
+  $('#search').addEventListener('input', e => { ui.search = e.target.value.trim(); ui.visible = 250; renderList(); });
   $('#loadMore').addEventListener('click', () => { ui.visible += 150; renderList(); });
   $('#prevBtn').addEventListener('click', () => adjacentChannel(-1));
   $('#nextBtn').addEventListener('click', () => adjacentChannel(1));

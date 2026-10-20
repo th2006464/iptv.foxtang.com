@@ -8,7 +8,7 @@
 <meta name="description" content="MediaHub Live · 在线电视直播、GitHub 公共频道与个人 M3U 播放清单">
 <link rel="icon" href="/media.png" type="image/png" sizes="any">
 <link rel="apple-touch-icon" href="/media.png">
-<link rel="stylesheet" href="/src/styles.css">
+<link rel="stylesheet" href="/src/styles.css?v=20261020-theater8">
 <title>MediaHub Live · 在线直播影院</title>
 </head>
 <body>
@@ -27,7 +27,7 @@
     <button type="button" class="header-icon" id="themeBtn" aria-label="切换明暗主题" title="切换主题">☾</button>
     <button type="button" class="header-icon" id="shareBtn" aria-label="分享当前频道" title="复制频道链接">♧</button>
     <button type="button" class="btn subtle" id="githubBtn">◈ <span>GitHub 频道库</span></button>
-    <button type="button" class="btn subtle" id="manageBtn">⚙ <span>源管理</span></button>
+    <button type="button" class="header-icon" id="manageBtn" title="播放源管理与导入" aria-label="播放源管理与导入">⚙</button>
     <button type="button" class="btn primary" id="importBtn">＋ <span>导入频道</span></button>
   </div>
 </header>
@@ -36,24 +36,9 @@
   <aside class="sidebar" aria-label="频道导航">
     <div class="side-search">
       <label class="search-box"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索频道..." autocomplete="off" aria-label="搜索频道"></label>
-      <div class="mini-filters" id="filters">
-        <button type="button" class="nav-item active" data-filter="all">全部 <b id="allCount">0</b></button>
-        <button type="button" class="nav-item" data-filter="favorites">☆ 收藏 <b id="favCount">0</b></button>
-        <button type="button" class="nav-item" data-filter="recent">◷ 最近 <b id="recentCount">0</b></button>
-      </div>
-      <div class="filters-extra">
-        <select id="sourceFilter" class="source-select" aria-label="选择来源"><option value="all">全部来源</option></select>
-        <button class="text-button" id="clearGroup" type="button">全部分组</button>
-      </div>
-      <div class="groups" id="groups"></div>
     </div>
-    <div class="side-count"><span>频道列表</span><span><span id="visibleCount">0</span> 个</span><span hidden id="libraryCount">0</span></div>
     <div class="channel-list" id="channelList"></div>
     <button type="button" class="load-more" id="loadMore" hidden>显示更多频道 ↓</button>
-    <div class="sidebar-footer">
-      <span class="privacy-dot"></span> 当前浏览器 · 私人清单本地保存
-      <button type="button" class="side-github" id="sideGithubBtn">＋ 频道库</button>
-    </div>
   </aside>
   <main class="main" aria-label="直播播放器与频道信息">
     <section class="player-card" aria-label="视频播放器">
@@ -103,7 +88,7 @@
       </div>
     </section>
     <div class="screen-footer">
-      <span>MEDIAHUB LIVE · 频道名称参考 HD.Rip · 自备有效订阅可测试付费频道</span>
+      <span>MEDIAHUB LIVE · 自备有权使用的线路</span>
       <button type="button" id="infoImport">探索 GitHub 公开频道 →</button>
       <span class="sr-only">频道数 <span id="statChannels">0</span>，收藏数 <span id="statFav">0</span>，来源数 <span id="statSources">0</span></span>
       <span class="sr-only" id="pageTitle">直播播放</span>
@@ -117,6 +102,6 @@
   </div>
 </div>
 </div>
-<script type="module" src="/src/main.js"></script>
+<script type="module" src="/src/main.js?v=20261020-theater8"></script>
 </body>
 </html>
