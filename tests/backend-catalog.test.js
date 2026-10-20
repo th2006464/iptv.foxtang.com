@@ -106,8 +106,8 @@ test('strict catalog contracts and Pages Function integration are present', asyn
   assert.match(endpoint,/CF_PAGES_COMMIT_SHA/);
   assert.match(endpoint,/\?build=/);
   assert.match(main,/cache: 'no-store'/);
-  assert.match(html,/styles\.css\?v=20261020-freemore14/);
-  assert.match(html,/main\.js\?v=20261020-freemore14/);
+  assert.match(html,/styles\.css\?v=20261020-oneoff15/);
+  assert.match(html,/main\.js\?v=20261020-oneoff15/);
   const base=installReferenceCatalog(EMPTY_STATE());
   assert.throws(()=>mergeBackendCatalog(base,{version:1,channels:[]}),/数量/);
 });

@@ -5,6 +5,7 @@ import { GITHUB_PLAYLISTS } from './github-sources.js';
 import { PUBLIC_SOURCE_ID, getPublicChannels } from './public-catalog.js';
 import { HD_REFERENCE_SOURCE_ID, installReferenceCatalog, addReferenceStream, matchOwnPlaylist, findReferenceId } from './hd-reference-catalog.js';
 import { mergeBackendCatalog } from './backend-catalog.js';
+import { mergeTemporarySession } from './temporary-session.js';
 import { nextFallbackIndex, MAX_AUTOMATIC_BACKUPS } from './line-failover.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -646,6 +647,44 @@ function setupEvents() {
   window.addEventListener('offline', () => notify('当前设备离线，直播可能中断', 'warn'));
   window.addEventListener('beforeunload', () => controller.destroy());
 }
+// An opt-in, short-lived test session may receive the user's already-captured
+// M3U from a private local launcher via postMessage. No playlist data ever
+// reaches the public API or IndexedDB, and this mode is off on normal visits.
+function configureTemporarySession() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('oneOffTest') !== '1' || !window.opener) return;
+  const nonce = location.hash.match(/^#nonce=([a-f0-9]{32})$/)?.[1];
+  if (!nonce) return;
+  let accepted = false;
+  const handler = (event) => {
+    if (accepted || event.source !== window.opener ||
+      event.data?.type !== 'mediahub-oneoff-playlist' ||
+      event.data.nonce !== nonce) return;
+    accepted = true;
+    window.removeEventListener('message', handler);
+    try {
+      const playlist = event.data.text;
+      if (typeof playlist !== 'string' || playlist.length > 150000) {
+        throw new Error('临时清单格式或大小无效');
+      }
+      const result = mergeTemporarySession(state, playlist);
+      // Every subsequent state change remains in RAM. Never persist even a
+      // single bearer URL through recordRecent(), favorite or backend sync.
+      canPersist = false;
+      state = result.state;
+      render();
+      history.replaceState(null, '', location.pathname + '?oneOffTest=1');
+      notify('临时测试：已匹配 ' + result.matched + ' 台，其中 ' +
+        result.active + ' 台尚未过期；只在本页内存使用，刷新即清除', 'success');
+      const initial = result.state.channels.find(c => c.id === 'ref-155' && c.streams.length);
+      if (initial) void selectChannel(initial.id, false);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '无法加载临时测试清单', 'error');
+    }
+  };
+  window.addEventListener('message', handler);
+  window.opener.postMessage({ type: 'mediahub-oneoff-ready', nonce }, '*');
+}
 async function init() {
   setupEvents(); theme();
   try { state = await loadState(); }
@@ -660,6 +699,7 @@ async function init() {
     ui.selected = state.recent[0]; updatePlayback('idle', '已恢复最近频道，点击播放');
   }
   render();
+  configureTemporarySession();
   // Nonblocking central public catalog; local snapshot remains as offline fallback.
   void syncPublicBackend().catch(error => {
     console.warn('Public catalog API unavailable; bundled channels still work:', error?.message || error);
