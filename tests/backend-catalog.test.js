@@ -103,8 +103,8 @@ test('strict catalog contracts and Pages Function integration are present', asyn
   assert.match(main,/void syncPublicBackend\(\)/);
   assert.match(endpoint,/export async function onRequestGet/);
   assert.match(endpoint,/Cache-Control/);
-  assert.match(html,/styles\.css\?v=20261020-publicbackend11/);
-  assert.match(html,/main\.js\?v=20261020-publicbackend11/);
+  assert.match(html,/styles\.css\?v=20261020-freehls12/);
+  assert.match(html,/main\.js\?v=20261020-freehls12/);
   const base=installReferenceCatalog(EMPTY_STATE());
   assert.throws(()=>mergeBackendCatalog(base,{version:1,channels:[]}),/数量/);
 });
